@@ -1,0 +1,29 @@
+name: 新功能需求
+description: 描述使用场景、功能范围和验收标准
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 使用场景与问题
+      description: 谁在什么场景下需要它？当前流程有什么阻碍？
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 期望行为与范围
+      description: 输入、输出、交互和边界；可以附替代方案。
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收标准
+      description: 给出能判断完成与否的操作和结果，包括失败场景。
+    validations:
+      required: true
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: 兼容性和依赖
+      description: 涉及的模块、旧数据、设备权限或额外服务。

@@ -322,6 +322,7 @@ class ProtocolTest(RemoteBase):
             self.assertEqual(s.get(PackJob, job["id"]).worker_name, "A")
 
 
+@unittest.skipUnless(os.name == "posix", "worker process E2E requires POSIX process groups and pkill")
 class WorkerProcessE2E(RemoteBase):
     """Real worker processes (`python -m xscript_server pack-worker`) against the running server."""
 

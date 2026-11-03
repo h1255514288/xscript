@@ -2,7 +2,9 @@
 
 English | [简体中文](README.md)
 
-[![CI](https://github.com/JackLuguibin/xscript/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/JackLuguibin/xscript/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/JackLuguibin/xscript)](https://github.com/JackLuguibin/xscript/releases/latest) [![License: MIT](https://img.shields.io/github/license/JackLuguibin/xscript)](LICENSE)
+[![CI](https://github.com/h1255514288/xscript/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/h1255514288/xscript/actions/workflows/ci.yml) [![Development tools](https://github.com/h1255514288/xscript/actions/workflows/dev-tools.yml/badge.svg?branch=main)](https://github.com/h1255514288/xscript/actions/workflows/dev-tools.yml) [![Upstream release](https://img.shields.io/github/v/release/JackLuguibin/xscript)](https://github.com/JackLuguibin/xscript/releases/latest) [![License: MIT](https://img.shields.io/github/license/JackLuguibin/xscript)](LICENSE)
+
+> Maintained by [h1255514288](https://github.com/h1255514288), forked from [JackLuguibin/xscript](https://github.com/JackLuguibin/xscript) with the MIT license and upstream history preserved. See the [development guide](docs/DEVELOPMENT.md), [extension guide](docs/EXTENDING.md) and [contribution workflow](CONTRIBUTING.md) (Chinese). Release downloads below still refer to upstream builds.
 
 **A Python automation development platform for Android.**
 
@@ -156,7 +158,7 @@ The build scripts try the JBR bundled with Android Studio by default and look fo
 ### 1. Get the source and build
 
 ```bash
-git clone https://github.com/JackLuguibin/xscript.git
+git clone https://github.com/h1255514288/xscript.git
 cd xscript
 ./android/build.sh
 ```
@@ -249,6 +251,8 @@ Then visit `http://127.0.0.1:8765/`. Initialization prompts you to create an adm
 
 ## Development and testing
 
+For the portable Windows/Linux/macOS entry point, see the [development guide](docs/DEVELOPMENT.md): `python scripts/dev.py doctor`, `python scripts/dev.py setup`, then `python scripts/dev.py check repo python console`. Android, device runtime and desktop checks still use the separate environments below.
+
 The Python backend/MCP tests and the on-device runtime tests use separate environments:
 
 ```bash
@@ -327,7 +331,7 @@ Most detailed docs are currently in Chinese.
 
 ## Contributing
 
-Report problems, make suggestions or submit Pull Requests through [Issues](https://github.com/JackLuguibin/xscript/issues).
+Report problems, make suggestions or submit Pull Requests through this fork's [Issues](https://github.com/h1255514288/xscript/issues). See [CONTRIBUTING](CONTRIBUTING.md) for development, upstream synchronization and validation.
 
 When reporting a problem, include the Android version, the device/emulator model, reproduction steps and relevant logs. When submitting code, keep the scope of the change clear, add the necessary tests and docs, and make sure the relevant checks pass.
 

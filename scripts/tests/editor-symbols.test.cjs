@@ -172,7 +172,7 @@ test('broken files still index up to the error; non-Python files are ignored', (
 test('a real package (backend/xscript_server): every occurrence resolves without throwing, references stay fast', () => {
   const fs = require('node:fs'), path = require('node:path');
   const base = path.join(__dirname, '../../backend'), files = [];
-  const walk = d => { for (const e of fs.readdirSync(d, {withFileTypes: true})) { const f = path.join(d, e.name); if (e.isDirectory()) walk(f); else if (e.name.endsWith('.py')) files.push({path: path.relative(base, f), content: fs.readFileSync(f, 'utf8')}); } };
+  const walk = d => { for (const e of fs.readdirSync(d, {withFileTypes: true})) { const f = path.join(d, e.name); if (e.isDirectory()) walk(f); else if (e.name.endsWith('.py')) files.push({path: path.relative(base, f).split(path.sep).join('/'), content: fs.readFileSync(f, 'utf8')}); } };
   walk(path.join(base, 'xscript_server'));
   const t0 = Date.now(), p = EditorSymbols.build(files, XSDocs);
   let n = 0, resolved = 0;

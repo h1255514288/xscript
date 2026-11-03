@@ -21,7 +21,7 @@ test('generated API index covers xscript and ascript and has signatures and docs
 test('the generated file is current (gen_completions.py --check)', () => {
   const root = path.join(__dirname, '..', '..');
   const venv = ['.venv-rt', '.venv'].map(d => path.join(root, d, 'bin', 'python')).find(p => fs.existsSync(p));
-  const r = spawnSync(venv || 'python3', [path.join(root, 'scripts', 'gen_completions.py'), '--check'], {encoding: 'utf8'});
+  const r = spawnSync(process.env.PYTHON || venv || 'python3', [path.join(root, 'scripts', 'gen_completions.py'), '--check'], {encoding: 'utf8'});
   assert.equal(r.status, 0, r.stderr + r.stdout);
 });
 test('module attribute completion after an import alias', () => {
@@ -86,7 +86,7 @@ const sig = src => { const pos = src.indexOf('|'); return C.callAt(src.replace('
 test('editor-docs.js is current (gen_editor_docs.py --check) and has signatures and full docstrings from the stubs', () => {
   const root = path.join(__dirname, '..', '..');
   const venv = ['.venv-rt', '.venv'].map(d => path.join(root, d, 'bin', 'python')).find(p => fs.existsSync(p));
-  const r = spawnSync(venv || 'python3', [path.join(root, 'scripts', 'gen_editor_docs.py'), '--check'], {encoding: 'utf8'});
+  const r = spawnSync(process.env.PYTHON || venv || 'python3', [path.join(root, 'scripts', 'gen_editor_docs.py'), '--check'], {encoding: 'utf8'});
   assert.equal(r.status, 0, r.stderr + r.stdout);
   assert.deepEqual(XSDocs['xscript.android.action.click'].slice(0, 1), ['(x, y=None, dur=20)']);
   assert.match(XSDocs['xscript.android.action.gesture'][1], /\n/, 'multi-line docstring kept whole');

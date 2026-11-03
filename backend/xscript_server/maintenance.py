@@ -10,6 +10,7 @@ be rebuilt and are large.
 
 from __future__ import annotations
 
+from contextlib import closing
 import io
 import json
 import os
@@ -33,7 +34,9 @@ MANIFEST = "xscript-backup.json"
 
 
 def _sqlite_copy(src: Path, dest: Path) -> None:
-    with sqlite3.connect(src) as a, sqlite3.connect(dest) as b:
+    # sqlite3.Connection's context manager commits/rolls back, but does not close.
+    # Keep temporary backup files removable on Windows, including on failure.
+    with closing(sqlite3.connect(src)) as a, closing(sqlite3.connect(dest)) as b:
         a.backup(b)
 
 

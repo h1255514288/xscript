@@ -6,6 +6,7 @@ import base64
 import hashlib
 import hmac
 import json
+import os
 import sqlite3
 import sys
 import tempfile
@@ -85,6 +86,21 @@ class MigrateTest(unittest.TestCase):
 
 
 class BackupTest(unittest.TestCase):
+    def test_sqlite_copy_releases_handles_even_when_backup_fails(self):
+        for fail in (False, True):
+            with self.subTest(fail=fail):
+                source, dest = mock.MagicMock(), mock.MagicMock()
+                if fail:
+                    source.backup.side_effect = sqlite3.OperationalError("disk full")
+                with mock.patch.object(maintenance.sqlite3, "connect", side_effect=[source, dest]):
+                    if fail:
+                        with self.assertRaises(sqlite3.OperationalError):
+                            maintenance._sqlite_copy(Path("source.db"), Path("copy.db"))
+                    else:
+                        maintenance._sqlite_copy(Path("source.db"), Path("copy.db"))
+                source.close.assert_called_once()
+                dest.close.assert_called_once()
+
     def test_round_trip(self):
         cfg = fresh_cfg()
         db = Database(cfg.db_url)
@@ -99,7 +115,8 @@ class BackupTest(unittest.TestCase):
         (src / "source.zip").write_bytes(b"zip")
         (src / "bundle.zip").write_bytes(b"rebuilt on demand")
         path = maintenance.create_backup(cfg)
-        self.assertEqual(oct(path.stat().st_mode & 0o777), "0o600")
+        if os.name == "posix":  # Windows uses ACLs, not Unix permission bits.
+            self.assertEqual(oct(path.stat().st_mode & 0o777), "0o600")
 
         target = fresh_cfg()
         existing = Database(target.db_url)

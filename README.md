@@ -2,7 +2,9 @@
 
 [English](README.en.md) | 简体中文
 
-[![CI](https://github.com/JackLuguibin/xscript/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/JackLuguibin/xscript/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/JackLuguibin/xscript)](https://github.com/JackLuguibin/xscript/releases/latest) [![License: MIT](https://img.shields.io/github/license/JackLuguibin/xscript)](LICENSE)
+[![CI](https://github.com/h1255514288/xscript/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/h1255514288/xscript/actions/workflows/ci.yml) [![Development tools](https://github.com/h1255514288/xscript/actions/workflows/dev-tools.yml/badge.svg?branch=main)](https://github.com/h1255514288/xscript/actions/workflows/dev-tools.yml) [![Upstream release](https://img.shields.io/github/v/release/JackLuguibin/xscript)](https://github.com/JackLuguibin/xscript/releases/latest) [![License: MIT](https://img.shields.io/github/license/JackLuguibin/xscript)](LICENSE)
+
+> 本仓库由 [h1255514288](https://github.com/h1255514288) 维护，复刻自 [JackLuguibin/xscript](https://github.com/JackLuguibin/xscript)，保留 MIT 许可证与上游历史。二次开发从 [开发指南](docs/DEVELOPMENT.md)、[扩展规范](docs/EXTENDING.md) 和 [贡献指南](CONTRIBUTING.md) 开始。下文 Release 下载链接仍指向上游构建。
 
 **面向 Android 的 Python 自动化开发平台。**
 
@@ -154,7 +156,7 @@ xscript/
 ### 1. 获取源码并构建
 
 ```bash
-git clone https://github.com/JackLuguibin/xscript.git
+git clone https://github.com/h1255514288/xscript.git
 cd xscript
 ./android/build.sh
 ```
@@ -246,6 +248,8 @@ python3.10 -m venv .venv
 
 ## 开发与测试
 
+Windows、Linux、macOS 的统一入口见 [开发指南](docs/DEVELOPMENT.md)：`python scripts/dev.py doctor` 检查环境，`python scripts/dev.py setup` 安装后台/MCP 与控制台依赖，`python scripts/dev.py check repo python console` 执行对应检查。Android、设备运行时和桌面端仍按下文配置各自环境。
+
 Python 后台/MCP 测试和设备端运行时测试使用独立环境：
 
 ```bash
@@ -313,7 +317,7 @@ python3 scripts/device_screen_smoke.py http://127.0.0.1:19860
 
 ## 贡献
 
-欢迎通过 [Issues](https://github.com/JackLuguibin/xscript/issues) 报告问题、提出建议，或提交 Pull Request。
+欢迎通过本仓库的 [Issues](https://github.com/h1255514288/xscript/issues) 报告问题、提出建议，或提交 Pull Request。开发、同步上游和验收流程见 [贡献指南](CONTRIBUTING.md)。
 
 报告问题时请提供 Android 版本、设备/模拟器型号、复现步骤和相关日志；提交代码时请保持改动范围清晰，补充必要的测试与文档，并通过对应检查。
 

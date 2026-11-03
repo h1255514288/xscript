@@ -14,7 +14,7 @@ const data = {
 };
 const text = JSON.stringify(data, null, 2) + "\n";
 if (process.argv.includes("--check")) {
-  const old = fs.existsSync(dest) ? fs.readFileSync(dest, "utf-8") : "";
+  const old = fs.existsSync(dest) ? fs.readFileSync(dest, "utf-8").replace(/\r\n/g, "\n") : "";
   if (old !== text) {
     console.error(path.relative(process.cwd(), dest) + " is out of date: run node scripts/export-templates.js");
     process.exit(1);

@@ -1,0 +1,28 @@
+name: 问题反馈
+description: 提供可复现的问题与运行环境
+body:
+  - type: textarea
+    id: environment
+    attributes:
+      label: 环境与版本
+      description: 组件、版本/提交、操作系统；设备问题补充 Android 版本、型号、连接方式和运行模式。
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤
+      description: 最小示例、操作步骤，以及必要的前置条件。
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: 预期与实际结果
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志或截图
+      description: 提交前移除配对码、令牌、签名私钥和个人数据。
