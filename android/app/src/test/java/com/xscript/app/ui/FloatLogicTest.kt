@@ -140,10 +140,10 @@ class FloatLogicTest {
     }
 
     @Test fun idleTimeouts() {
+        // a fixed 3 seconds for both the pill and the expanded panel; the ball never shrinks
         assertEquals(FloatLogic.PILL_IDLE_MS, FloatLogic.idleMs(Mode.PILL))
-        assertEquals(FloatLogic.PANEL_IDLE_MS, FloatLogic.idleMs(Mode.PANEL))
+        assertEquals(FloatLogic.PILL_IDLE_MS, FloatLogic.idleMs(Mode.PANEL))
         assertNull(FloatLogic.idleMs(Mode.BALL))
-        assertTrue(FloatLogic.PANEL_IDLE_MS > FloatLogic.PILL_IDLE_MS)
     }
 
     @Test fun alphaHonoursDimAndDimsTheIdleBall() {

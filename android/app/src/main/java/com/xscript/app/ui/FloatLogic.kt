@@ -65,14 +65,14 @@ object FloatLogic {
 
     enum class Event { SHOW, HIDE, TAP, ACTION, IDLE, WAKE }
 
-    const val PILL_IDLE_MS = 5_000L
-    const val PANEL_IDLE_MS = 10_000L
+    const val PILL_IDLE_MS = 3_000L
 
     /**
      * SHOW/HIDE follow [decide] (a window that appears starts as a PILL so the name is readable);
      * TAP opens the panel from a ball or pill and closes it again to the pill; ACTION (a panel button
-     * was used) returns to the pill; IDLE (no touch for [PILL_IDLE_MS] / [PANEL_IDLE_MS]) shrinks to the
-     * ball; WAKE (drag, new error) turns a ball back into the pill. Nothing reacts while hidden.
+     * was used) returns to the pill; IDLE (no touch for [PILL_IDLE_MS]) shrinks to the ball — the
+     * expanded panel uses the same delay so it collapses back to the ball just as fast;
+     * WAKE (drag, new error) turns a ball back into the pill. Nothing reacts while hidden.
      */
     fun next(s: State, e: Event): State = when (e) {
         Event.SHOW -> if (s.visible) s else State(visible = true, mode = Mode.PILL)
@@ -86,11 +86,11 @@ object FloatLogic {
         }
     }
 
-    fun idleMs(mode: Mode): Long? = when (mode) {
-        Mode.PILL -> PILL_IDLE_MS
-        Mode.PANEL -> PANEL_IDLE_MS
-        Mode.BALL -> null
-    }
+    /**
+     * Idle delay before shrinking to the ball. It is a fixed 3 seconds — the same for the pill and
+     * the expanded panel — and the ball never shrinks again.
+     */
+    fun idleMs(mode: Mode): Long? = if (mode == Mode.BALL) null else PILL_IDLE_MS
 
     /** Window opacity: the script's `dim` (0.1–1) normally, never more than [BALL_ALPHA] × dim for the idle ball. */
     const val BALL_ALPHA = 0.6f
