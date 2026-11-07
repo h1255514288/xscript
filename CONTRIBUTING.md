@@ -2,7 +2,7 @@
 
 本仓库是 [JackLuguibin/xscript](https://github.com/JackLuguibin/xscript) 的 MIT 复刻，维护地址为 [h1255514288/xscript](https://github.com/h1255514288/xscript)。保留原作者署名、许可证与上游历史。
 
-从 [开发指南](docs/DEVELOPMENT.md) 配置环境、运行测试；从 [扩展规范](docs/EXTENDING.md) 确认新功能应修改哪些模块。现有用户使用方式见 [README](README.md)。
+完整协作与验收方式见 [新功能工作流程](docs/WORKFLOW.md)，建议推进顺序见 [迭代计划](docs/ITERATION_PLAN.md)。从 [开发指南](docs/DEVELOPMENT.md) 配置环境、运行测试；从 [扩展规范](docs/EXTENDING.md) 确认新功能应修改哪些模块。现有用户使用方式见 [README](README.md)。
 
 ## 工作流程
 

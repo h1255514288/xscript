@@ -3,6 +3,7 @@
 Nothing from a .gp file is executed: params only evaluate literals, task constants and R path
 helpers, and ".module.Class" ids import the running project's own modules, only when declared."""
 import json
+import os
 import sys
 import tempfile
 import textwrap
@@ -106,7 +107,7 @@ class ProjectGpTest(unittest.TestCase):
         self.assertEqual(res.data["text"], "ABA")
         args, _ = gp._arguments("R.img('x', 'y.png'), R.sd('a'), R.root(), R.ui('p')", gp.GPTask)
         self.assertEqual(args, [[str(self.root / "res" / "img" / "x"), str(self.root / "res" / "img" / "y.png")],
-                                "/sdcard/a", str(self.root), str(self.root / "res" / "ui" / "p")])
+                                os.path.join("/sdcard", "a"), str(self.root), str(self.root / "res" / "ui" / "p")])
 
     def test_params_reject_everything_executable(self):
         for params in ("R.rel(__file__, 'a')", "R.img(name)", "R.img(1)", "R.img('a', sep='/')",

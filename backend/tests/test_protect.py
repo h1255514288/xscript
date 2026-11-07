@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -45,6 +46,43 @@ class ProtectTest(unittest.TestCase):
             self.skipTest("test interpreter is 3.10")
         with self.assertRaises(RuntimeError):
             protect.compile_tree(tempfile.mkdtemp(), python=sys.executable)
+
+    def test_protected_bundle_preserves_source_archive_and_resources(self):
+        from xscript_server.config import Config
+        from xscript_server import scripts
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg = Config(data_dir=Path(tmp))
+            version = scripts.version_dir(cfg, 1, 1)
+            version.mkdir(parents=True)
+            source = version / "source.zip"
+            with zipfile.ZipFile(source, "w") as archive:
+                archive.writestr("demo/__init__.py", "from .helper import VALUE\n")
+                archive.writestr("demo/helper.py", "VALUE = 42\n")
+                archive.writestr("demo/res/config.json", '{"name":"测试"}')
+            original = source.read_bytes()
+            bundle, digest, size = scripts.bundle(cfg, 1, 1, protect=True)
+            with zipfile.ZipFile(bundle) as archive:
+                self.assertEqual(sorted(archive.namelist()), ["__init__.pyc", "helper.pyc", "res/config.json"])
+                self.assertEqual(archive.read("res/config.json").decode(), '{"name":"测试"}')
+            self.assertEqual(source.read_bytes(), original)
+            self.assertEqual(digest, scripts.sha256_file(bundle))
+            self.assertEqual(size, bundle.stat().st_size)
+
+    def test_invalid_source_never_becomes_a_published_protected_bundle(self):
+        from xscript_server.config import Config
+        from xscript_server import scripts
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg = Config(data_dir=Path(tmp))
+            version = scripts.version_dir(cfg, 1, 1)
+            version.mkdir(parents=True)
+            with zipfile.ZipFile(version / "source.zip", "w") as archive:
+                archive.writestr("__init__.py", "def broken(:\n")
+            with self.assertRaisesRegex(RuntimeError, "编译失败"):
+                scripts.bundle(cfg, 1, 1, protect=True)
+            self.assertFalse((version / "bundle-pyc.zip").exists())
+            self.assertTrue((version / "source.zip").is_file())
 
 
 if __name__ == "__main__":

@@ -15,7 +15,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
-from .. import __version__, aiwriter, maintenance, netcheck, stats
+from .. import __version__, aiwriter, maintenance, netcheck, oss, stats
 from .. import cards as cardsvc
 from ..audit import ALERT_EVENTS, get_settings, set_setting
 from ..deps import Principal, admin, client_ip, ctx, db_session, like_contains, like_escape, paginate, record, viewer
@@ -107,6 +107,7 @@ def audit_log(p: Principal = Depends(admin), s: Session = Depends(db_session), a
 def read_settings(request: Request, p: Principal = Depends(viewer), s: Session = Depends(db_session)):
     c = ctx(request)
     out: dict[str, Any] = get_settings(s)
+    oss_status = oss.from_settings(c.config, out).status()
     # Webhook URLs embed access tokens: admins see them, signing secrets are never returned.
     hooks = out.get("alert_webhooks") or []
     out["alert_webhooks"] = [{**{k: v for k, v in w.items() if k != "secret"}, "has_secret": bool(w.get("secret")),
@@ -114,6 +115,11 @@ def read_settings(request: Request, p: Principal = Depends(viewer), s: Session =
     out["login_ip_allowlist_on"] = bool(out.get("login_ip_allowlist"))
     if not p.at_least("admin"):
         out["login_ip_allowlist"] = []  # network layout is for admins
+    # OSS credentials are write-only: the console sees whether one is stored, never the value.
+    out.pop("oss_access_key_secret", None)
+    if not p.at_least("admin"):
+        out["oss_access_key_id"] = ""
+    out["oss"] = {**oss_status, "secret_set": oss_status["secret_set"]}
     out.update(database=c.db.dialect,  # sqlite | postgresql (never the URL: it holds a password)
                version=__version__, license_public_key=c.pubkey, release_signing=c.config.release_signing,
                alert_events=ALERT_EVENTS, your_ip=client_ip(request))
@@ -153,6 +159,15 @@ class SettingsIn(BaseModel):
     abuse_ip_devices: int | None = Field(default=None, ge=0, le=10000)
     abuse_ip_failures: int | None = Field(default=None, ge=0, le=10000)
     login_ip_allowlist: list[str] | None = Field(default=None, max_length=100)
+    # OSS for 热更新. The secret is write-only; leaving it blank keeps the stored value.
+    oss_enabled: bool | None = None
+    oss_endpoint: str | None = Field(default=None, max_length=255, pattern=r"^(|https?://[^\s/?#]+(:\d+)?(/[^\s?#]*)?)$")
+    oss_bucket: str | None = Field(default=None, max_length=63, pattern=r"^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$|^$")
+    oss_access_key_id: str | None = Field(default=None, max_length=255, pattern=r"^[^\s]*$")
+    oss_access_key_secret: str | None = Field(default=None, max_length=255, pattern=r"^[^\s]*$")
+    oss_prefix: str | None = Field(default=None, max_length=128, pattern=r"^[^\s\\]*$")
+    oss_public_base: str | None = Field(default=None, max_length=255, pattern=r"^(|https?://[^\s/?#]+(:\d+)?(/[^\s?#]*)?)$")
+    oss_url_expire: int | None = Field(default=None, ge=60, le=oss.MAX_URL_EXPIRE)
     # No key field on purpose: XSCRIPT_AI_KEY lives in the server environment only.
     ai_base_url: str | None = Field(default=None, max_length=255, pattern=aiwriter.URL_RE)
     ai_model: str | None = Field(default=None, max_length=128, pattern=r"^[^\s]*$")
@@ -165,6 +180,15 @@ def write_settings(body: SettingsIn, request: Request, p: Principal = Depends(ad
         changes["ai_base_url"] = changes["ai_base_url"].rstrip("/")
     if "public_url" in changes:
         changes["public_url"] = changes["public_url"].rstrip("/")
+    if "oss_public_base" in changes:
+        changes["oss_public_base"] = changes["oss_public_base"].rstrip("/")
+    if "oss_access_key_secret" in changes and not changes["oss_access_key_secret"]:
+        changes.pop("oss_access_key_secret")
+    if "oss_prefix" in changes:
+        try:
+            changes["oss_prefix"] = oss.normalize_prefix(changes["oss_prefix"])
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from None
     if "alert_webhooks" in changes:
         # A secret left empty in the form keeps the stored one (secrets are never sent back).
         old = {w.get("url"): w for w in get_settings(s).get("alert_webhooks") or []}
@@ -196,6 +220,8 @@ def write_settings(body: SettingsIn, request: Request, p: Principal = Depends(ad
         # This endpoint runs in a worker thread; hub sockets live on the event loop.
         from_thread.run(ctx(request).hub.set_log_days, float(changes["device_log_days"]))
     logged = dict(changes)
+    if "oss_access_key_secret" in logged:
+        logged["oss_access_key_secret"] = "[已设置]"
     if "alert_webhooks" in logged:
         logged["alert_webhooks"] = [{"name": w["name"], "kind": w["kind"], "events": w["events"]}
                                     for w in logged["alert_webhooks"]]  # URLs carry tokens
@@ -218,6 +244,21 @@ async def test_alert(body: WebhookIn, request: Request, p: Principal = Depends(a
     if not ok:
         raise HTTPException(502, "发送失败: %s" % msg)
     return {"ok": True}
+
+
+@router.post("/settings/oss/test")
+async def test_oss(request: Request, p: Principal = Depends(admin), s: Session = Depends(db_session)):
+    """Upload a tiny probe object with the saved settings to verify OSS access."""
+    cfg = oss.from_settings(ctx(request).config, get_settings(s))
+    if not cfg.enabled:
+        raise HTTPException(400, "先启用 OSS")
+    if not cfg.configured:
+        raise HTTPException(400, "OSS 未配置：" + "、".join(cfg.missing))
+    try:
+        url = await run_in_threadpool(oss.probe, cfg)
+    except Exception as e:
+        raise HTTPException(502, "OSS 测试失败: %s" % e) from None
+    return {"ok": True, "url": url, "bucket": cfg.bucket, "prefix": cfg.prefix}
 
 
 @router.get("/alerts/recent")

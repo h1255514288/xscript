@@ -750,6 +750,7 @@ XS.TOOLS = [
   { id: "color", name: "图色工具", icon: "palette", href: "/tools/ui/color.html", desc: "找色 · 比色 · 找图 · 文字识别" },
   { id: "label", name: "标注工具", icon: "tag", href: "/tools/ui/label.html", desc: "YOLO 数据集标注与导出" },
   { id: "mirror", name: "投屏", icon: "phone", href: "/tools/ui/mirror.html", desc: "实时画面与远程操控" },
+  { id: "nodes", name: "节点树", icon: "layers", href: "/tools/ui/nodes.html", desc: "设备节点 · 选择器 · 在线测试" },
 ];
 XS.IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 

@@ -181,12 +181,12 @@
 .shot-swatch[hidden] { display:none; }
 /* Node dock (节点): screenshot with the picked node's box, node tree, attributes and generated code */
 #node-toggle[aria-pressed="true"] { background:var(--accent-soft); border-color:var(--accent); color:var(--text-strong); }
-.ide-nodes { max-height:380px; }
+.ide-nodes { max-height:min(560px, 70vh); }
 .ide-nodes .node-full { display:inline-flex; align-items:center; gap:4px; font-size:12px; color:var(--muted); }
 .ide-nodes .node-full input { width:auto; height:auto; margin:0; }
 #node-recent { max-width:180px; height:26px; }
 #node-filter { width:180px; height:26px; box-sizing:border-box; }
-.node-body { flex:1; min-height:0; display:grid; grid-template-columns:auto minmax(200px,1fr) minmax(240px,1.1fr); gap:10px; padding:8px 12px; background:var(--bg); overflow:hidden; }
+.node-body { flex:1; min-height:0; display:grid; grid-template-columns:auto minmax(160px,.8fr) minmax(340px,1.4fr); gap:10px; padding:8px 12px; background:var(--bg); overflow:hidden; }
 .node-screen { min-height:0; overflow:auto; display:flex; flex-direction:column; align-items:center; }
 .node-frame { position:relative; display:inline-block; line-height:0; }
 #node-shot { height:290px; width:auto; max-width:none; cursor:crosshair; border:1px solid var(--divider); border-radius:4px; }
@@ -213,7 +213,20 @@
 .node-type { color:var(--muted); font-size:11px; flex-shrink:0; }
 .node-tag { flex-shrink:0; padding:0 5px; border-radius:9px; background:var(--accent-soft); font-size:10px; }
 .node-empty { margin:6px 8px; font-size:11px; color:var(--muted); line-height:1.4; }
-.node-detail { min-height:0; max-height:300px; overflow:auto; display:flex; flex-direction:column; gap:6px; }
+.node-detail { min-width:0; min-height:0; max-height:470px; overflow:auto; display:flex; flex-direction:column; gap:6px; }
+.node-detail > * { flex-shrink:0; }
+.node-properties summary { cursor:pointer; font-size:12px; color:var(--muted); margin-bottom:4px; }
+.node-criteria { min-width:0; margin:0; padding:6px; border:1px solid var(--divider); border-radius:var(--radius); font-size:12px; }
+.node-criteria[hidden] { display:none; }
+#node-conditions { max-height:176px; overflow:auto; }
+.node-condition { display:grid; grid-template-columns:82px 66px minmax(0,1fr); gap:5px; align-items:center; margin-bottom:4px; }
+.node-condition label { display:flex; gap:4px; align-items:center; }
+.node-condition input[type="checkbox"] { width:auto; height:auto; margin:0; }
+.node-condition > input, .node-condition select { min-width:0; width:100%; height:26px; box-sizing:border-box; font-size:12px; padding:2px 4px; }
+.node-condition-help { margin:5px 0 0; color:var(--muted); font-size:11px; line-height:1.5; }
+.node-condition-error { color:var(--bad); font-size:12px; margin:0; }
+.node-condition-error:empty, .node-matches:empty { display:none; }
+.node-matches { font-size:11px; font-family:var(--mono); margin:0; padding-left:24px; max-height:90px; overflow:auto; overflow-wrap:anywhere; }
 .node-attrs { display:grid; grid-template-columns:auto minmax(0,1fr); gap:2px 10px; margin:0; font-size:12px; }
 .node-attrs dt { color:var(--muted); white-space:nowrap; }
 .node-attrs dd { margin:0; font-family:var(--mono); word-break:break-all; color:var(--text-strong); }
@@ -221,7 +234,7 @@
 .node-code-row select { flex:1; min-width:0; }
 #node-code { width:100%; box-sizing:border-box; min-height:58px; font-family:var(--mono); font-size:12px; resize:vertical; }
 .node-actions { display:flex; flex-wrap:wrap; gap:6px; justify-content:flex-end; align-items:center; }
-@media(max-width:900px) { .node-body { grid-template-columns:auto minmax(0,1fr); } .node-detail { grid-column:1 / -1; max-height:none; } }
+@media(max-width:1100px) { .node-body { grid-template-columns:auto minmax(0,1fr); overflow:auto; } .node-detail { grid-column:1 / -1; max-height:none; } }
 
 /* Phone layout (≤600px): one column, explorer as a drawer, compact toolbar and panels. */
 #sidebar-toggle { display:none; }

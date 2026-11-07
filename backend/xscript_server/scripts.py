@@ -73,12 +73,19 @@ def bundle(config: Config, script_id: int, version_id: int, protect: bool) -> tu
     path = d / ("bundle-pyc.zip" if protect else "bundle.zip")
     digest_file = path.with_name(path.name + ".sha256")
     if not (path.is_file() and digest_file.is_file()):
-        with tempfile.TemporaryDirectory(prefix="xs-bundle-") as tmp:
+        # Publishing may prewarm OSS while devices request the same version. Each
+        # builder needs its own files on the destination filesystem; only publish
+        # complete archives/digests so readers never reuse a partial cache entry.
+        with tempfile.TemporaryDirectory(prefix=".bundle-", dir=d) as tmp:
             root = safe_extract(d / "source.zip", Path(tmp) / "src")
             if protect:
                 compile_tree(root)
-            _zip_dir(root, path)
-        digest_file.write_text(sha256_file(path))
+            built = Path(tmp) / path.name
+            _zip_dir(root, built)
+            digest = Path(tmp) / digest_file.name
+            digest.write_text(sha256_file(built))
+            built.replace(path)
+            digest.replace(digest_file)
     return path, digest_file.read_text().strip(), path.stat().st_size
 
 

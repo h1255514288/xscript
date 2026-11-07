@@ -219,7 +219,13 @@ export function PackForm({
                 maxCount={1}
                 fileList={project}
                 beforeUpload={() => false}
-                onChange={({ fileList }) => setProject(fileList.slice(-1))}
+                onChange={({ fileList }) => {
+                  const picked = fileList.slice(-1);
+                  setProject(picked);
+                  // A zip usually carries the script name; keep an explicitly typed 名称.
+                  const suggested = picked[0]?.name.replace(/\.zip$/i, "").trim();
+                  if (suggested && !form.getFieldValue("app_name")) form.setFieldValue("app_name", suggested);
+                }}
               >
                 <div className="dropzone-body">
                   <span className="icon-badge blue">
@@ -241,7 +247,13 @@ export function PackForm({
                     showSearch
                     optionFilterProp="label"
                     options={(scripts.data?.items ?? []).map((s) => ({ value: s.id, label: `${s.name}（${s.project_name}）` }))}
-                    onChange={() => form.setFieldValue("script_version_id", undefined)}
+                    onChange={(id: number) => {
+                      // Packed APKs show the 小程序 name by default; the field stays editable.
+                      form.setFieldsValue({
+                        script_version_id: undefined,
+                        app_name: (scripts.data?.items ?? []).find((s) => s.id === id)?.name,
+                      });
+                    }}
                     notFoundContent="还没有小程序，先到「小程序」页上传"
                   />
                 </Form.Item>
@@ -283,7 +295,7 @@ export function PackForm({
               <Row gutter={12}>
                 <Col span={12}>
                   <Form.Item name="app_name" label="App 名称">
-                    <Input maxLength={64} placeholder="默认用工程名" />
+                    <Input maxLength={64} placeholder="默认用小程序名或工程名" />
                   </Form.Item>
                 </Col>
                 <Col span={12}>

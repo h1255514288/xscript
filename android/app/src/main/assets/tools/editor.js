@@ -822,17 +822,21 @@
       box.scrollTop = Math.max(0, (m.line - 6) * 21); syncScroll(); cursor();
     }});
   EditorPanels.initShot({api: (...args) => XS.api(...args), model, message, refreshFiles: () => refreshFiles().then(render),
-    onOpen: () => nodes.close(),
     insertAtCaret(text) {
       const box = el("editor"); if (box.disabled || !current) return message("先打开一个文件", true);
       box.focus(); box.setRangeText(text, box.selectionStart, box.selectionEnd, "end"); box.dispatchEvent(new Event("input"));
     }});
-  // 节点 dock (editor-nodes.js): generated code goes in at the caret, missing imports at the top of the file.
-  const nodes = EditorNodes.initNodes({message,
-    onOpen: () => { if (!el("shot-panel").hidden) el("shot-close").click(); },
-    insertCode(code, imports) {
+  // The inspector lives in a separate tab. Accept insertions only from the window this editor opened.
+  let nodeWindow = null, nodeToken = "";
+  el("node-toggle").addEventListener("click", () => {
+    if (nodeWindow && !nodeWindow.closed) { nodeWindow.focus(); return; }
+    nodeToken = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random();
+    nodeWindow = window.open("/tools/ui/nodes.html?editor=" + encodeURIComponent(nodeToken), "_blank");
+    if (!nodeWindow) message("节点页被浏览器拦截，请允许此站点打开新标签页", true);
+  });
+  function insertNodeCode(code, imports) {
       const box = el("editor");
-      if (box.disabled || !current || current.binary) { message("先打开一个 .py 文件", true); return false; }
+      if (box.disabled || !current || current.binary || !/\.py$/i.test(current.path)) { message("先打开一个 .py 文件", true); return false; }
       box.focus();
       const start = box.selectionStart, end = box.selectionEnd, lineStart = box.value.lastIndexOf("\n", start - 1) + 1;
       const indent = /^[ \t]*/.exec(box.value.slice(lineStart, start))[0];
@@ -844,7 +848,15 @@
       }
       box.dispatchEvent(new Event("input"));
       return true;
-    }});
+  }
+  window.addEventListener("message", e => {
+    const d = e.data;
+    if (e.origin !== location.origin || e.source !== nodeWindow || !d || d.type !== "xscript:insert-node" || d.token !== nodeToken) return;
+    if (typeof d.code !== "string" || d.code.length > 100000 || !Array.isArray(d.imports) || !d.imports.every(s => ["from xscript.android import node", "from xscript.android import action"].includes(s))) return;
+    const ok = insertNodeCode(d.code, d.imports);
+    if (ok) message("已插入节点代码，保存后生效");
+    e.source.postMessage({type: "xscript:node-inserted", id: d.id, ok}, e.origin);
+  });
   window.addEventListener("keydown", e => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") { e.preventDefault(); if (!el("save").disabled) el("save").click(); }
     if (e.key === "F6") { e.preventDefault(); el(e.shiftKey ? "stop" : "run").click(); }

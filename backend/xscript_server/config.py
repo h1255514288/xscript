@@ -12,6 +12,13 @@ DEFAULT_WEB_DIR = BACKEND_DIR / "web" / "dist"
 DEFAULT_PACK_SCRIPT = BACKEND_DIR / "xscript_pack.py"
 
 
+def _positive_int(value: str | None, default: int) -> int:
+    try:
+        return max(60, min(int(value or default), 604800))
+    except (TypeError, ValueError):
+        return default
+
+
 @dataclass
 class Config:
     data_dir: Path
@@ -32,6 +39,15 @@ class Config:
     # XSCRIPT_PACK_MODE: "local" (default) builds here, one job at a time; "remote" leaves jobs in the
     # database for separate 打包机 (`python -m xscript_server pack-worker`) to claim.
     pack_mode: str = "local"
+    # Alibaba Cloud OSS; credentials fall back to 系统设置 when the environment is empty.
+    oss_enabled: bool = False
+    oss_endpoint: str = ""
+    oss_bucket: str = ""
+    oss_access_key: str = ""
+    oss_access_secret: str = ""
+    oss_prefix: str = ""
+    oss_public_base: str = ""
+    oss_url_expire: int | None = None
 
     @classmethod
     def load(cls, data_dir: str | os.PathLike | None = None, web_dir: str | None = None) -> "Config":
@@ -49,6 +65,15 @@ class Config:
             key_pass=os.environ.get("XSCRIPT_KEY_PASS", ""),
             database_url=os.environ.get("XSCRIPT_DATABASE_URL", "").strip(),
             pack_mode="remote" if os.environ.get("XSCRIPT_PACK_MODE", "").strip().lower() == "remote" else "local",
+            oss_enabled=os.environ.get("XSCRIPT_OSS_ENABLED", "").strip().lower() in ("1", "true", "on", "yes"),
+            oss_endpoint=os.environ.get("XSCRIPT_OSS_ENDPOINT", "").strip(),
+            oss_bucket=os.environ.get("XSCRIPT_OSS_BUCKET", "").strip(),
+            oss_access_key=os.environ.get("XSCRIPT_OSS_ACCESS_KEY_ID", "").strip(),
+            oss_access_secret=os.environ.get("XSCRIPT_OSS_ACCESS_KEY_SECRET", "").strip(),
+            oss_prefix=os.environ.get("XSCRIPT_OSS_PREFIX", "").strip().strip("/"),
+            oss_public_base=os.environ.get("XSCRIPT_OSS_PUBLIC_BASE", "").strip().rstrip("/"),
+            oss_url_expire=(_positive_int(os.environ["XSCRIPT_OSS_URL_EXPIRE"], 3600)
+                            if os.environ.get("XSCRIPT_OSS_URL_EXPIRE") else None),
         )
 
     @property

@@ -437,17 +437,20 @@ def _remove_dist(key, site):
         dirs = set()
         if os.path.isfile(record):
             with open(record, "r", encoding="utf-8", errors="replace") as f:
-                for line in f:
-                    rel = line.split(",", 1)[0].strip()
-                    m = re.match(r"^[^/]+\.data/(purelib|platlib)/(.+)$", rel)
-                    if m:
-                        rel = m.group(2)
-                    if not rel or ".." in rel.split("/"):
-                        continue
-                    p = os.path.join(site, rel)
-                    if os.path.isfile(p):
-                        os.remove(p)
-                        dirs.add(os.path.dirname(p))
+                # RECORD usually lists itself. Close it before removing its entries,
+                # otherwise Windows refuses upgrades/uninstalls of the open file.
+                entries = f.readlines()
+            for line in entries:
+                rel = line.split(",", 1)[0].strip()
+                m = re.match(r"^[^/]+\.data/(purelib|platlib)/(.+)$", rel)
+                if m:
+                    rel = m.group(2)
+                if not rel or ".." in rel.split("/"):
+                    continue
+                p = os.path.join(site, rel)
+                if os.path.isfile(p):
+                    os.remove(p)
+                    dirs.add(os.path.dirname(p))
         shutil.rmtree(os.path.join(site, entry), ignore_errors=True)
         for d in sorted(dirs, key=len, reverse=True):
             _prune(d, site)

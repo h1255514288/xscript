@@ -225,7 +225,7 @@ else:
 
 A project can contain Python submodules, resource files and a `requirements.txt`. Whether a third-party dependency works depends on its Python version and Android platform support; not every desktop Python package can be installed on the device.
 
-When migrating AScript projects you can use the `ascript.android.*` compatibility entry points. Some interfaces still behave differently or are not implemented yet, so read the [feature comparison](docs/功能对照.md) and the [compatibility implementation notes](docs/ASCRIPT_RECONSTRUCTION.md) first (both Chinese).
+When migrating AScript projects you can use the `ascript.android.*` compatibility entry points. Some interfaces still behave differently or are not implemented yet, so read the [feature comparison](docs/功能对照.md), the [compatibility implementation notes](docs/ASCRIPT_RECONSTRUCTION.md) and the [per-module API compatibility status](docs/API.md#模块状态) first (all Chinese). Hardware HID, AScript V4 encrypted scripts, NCNN models, binary dot-matrix fonts and AScript's official cloud are explicitly unsupported and are never reported as working.
 
 ## Optional components
 
@@ -250,6 +250,8 @@ Then visit `http://127.0.0.1:8765/`. Initialization prompts you to create an adm
 - [Type stubs](ide/python-stubs/README.md): set up `xscript.*` and `ascript.*` autocompletion.
 
 ## Development and testing
+
+See the [feature development workflow](docs/WORKFLOW.md) and [iteration plan](docs/ITERATION_PLAN.md) (Chinese) for requirement intake, implementation, acceptance and release templates.
 
 For the portable Windows/Linux/macOS entry point, see the [development guide](docs/DEVELOPMENT.md): `python scripts/dev.py doctor`, `python scripts/dev.py setup`, then `python scripts/dev.py check repo python console`. Android, device runtime and desktop checks still use the separate environments below.
 

@@ -423,6 +423,25 @@ export interface Settings {
   /** 后台 AI 写脚本: overrides XSCRIPT_AI_BASE_URL / XSCRIPT_AI_MODEL ("" = environment). The key is env-only. */
   ai_base_url: string;
   ai_model: string;
+  /** 热更新 OSS: the secret is write-only (oss.secret_set tells whether one is stored). */
+  oss_enabled: boolean;
+  oss_endpoint: string;
+  oss_bucket: string;
+  oss_access_key_id: string;
+  oss_prefix: string;
+  oss_public_base: string;
+  oss_url_expire: number;
+  oss?: {
+    enabled: boolean;
+    configured: boolean;
+    endpoint: string;
+    bucket: string;
+    prefix: string;
+    public_base: string;
+    url_expire: number;
+    secret_set: boolean;
+    missing: string[];
+  };
 }
 
 export interface MaintenanceInfo {

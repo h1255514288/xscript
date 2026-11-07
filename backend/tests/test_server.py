@@ -456,6 +456,16 @@ class ServerTest(unittest.IsolatedAsyncioTestCase):
         keys = (await self.admin.get("/api/device-keys")).json()["items"]
         self.assertTrue(any(k["name"] == "打包 com.example.demo" for k in keys))
 
+        # An uploaded zip without an explicit App 名称 uses the archive name, not the extracted "src".
+        r = await self.admin.post("/api/pack/jobs", data={"options": json.dumps({"app_id": "com.example.noname"})},
+                                  files={"project": ("金币脚本.zip", self.project_zip(), "application/zip")})
+        self.assertEqual(r.status_code, 200, r.text)
+        noname = await self.wait_job(r.json()["id"])
+        self.assertEqual(noname["status"], "succeeded", noname)
+        self.assertEqual(noname["app_name"], "金币脚本")
+        log = (await self.admin.get("/api/pack/jobs/%d/log" % noname["id"])).json()["text"]
+        self.assertIn("--name 金币脚本", log)
+
         failed = await self.wait_job((await self.pack("com.example.fail")).json()["id"])
         self.assertEqual(failed["status"], "failed")
 
@@ -489,6 +499,66 @@ class ServerTest(unittest.IsolatedAsyncioTestCase):
     async def upload_version(self, client, sid, text, **form):
         return await client.post("/api/scripts/%d/versions" % sid, data={k: str(v) for k, v in form.items()},
                                  files={"file": ("p.zip", self.script_zip(text), "application/zip")})
+
+    async def test_oss_settings_permissions_and_secret_retention(self):
+        from xscript_server import oss
+
+        settings = {"oss_enabled": True, "oss_endpoint": "https://oss.example.com",
+                    "oss_bucket": "test-bucket", "oss_access_key_id": "test-id",
+                    "oss_access_key_secret": "test-secret", "oss_prefix": "updates", "oss_url_expire": 120}
+        try:
+            r = await self.admin.put("/api/settings", json=settings)
+            self.assertEqual(r.status_code, 200, r.text)
+            self.assertNotIn("oss_access_key_secret", r.json())
+            self.assertTrue(r.json()["oss"]["secret_set"])
+            r = await self.admin.put("/api/settings", json={"oss_access_key_secret": ""})
+            self.assertTrue(r.json()["oss"]["secret_set"])
+            viewer = await self.make_user("oss-viewer", "viewer")
+            try:
+                data = (await viewer.get("/api/settings")).json()
+                self.assertEqual(data["oss_access_key_id"], "")
+                self.assertNotIn("oss_access_key_secret", data)
+                self.assertEqual((await viewer.post("/api/settings/oss/test")).status_code, 403)
+            finally:
+                await viewer.aclose()
+            with mock.patch.object(oss, "probe", return_value="https://oss.example.com/probe") as probe:
+                r = await self.admin.post("/api/settings/oss/test")
+                self.assertEqual(r.status_code, 200, r.text)
+                self.assertEqual(probe.call_args.args[0].access_secret, "test-secret")
+            audit = (await self.admin.get("/api/audit", params={"action": "settings.update"})).json()
+            self.assertNotIn("test-secret", json.dumps(audit))
+            r = await self.admin.put("/api/settings", json={"oss_prefix": "../private"})
+            self.assertEqual(r.status_code, 400)
+        finally:
+            await self.admin.put("/api/settings", json={"oss_enabled": False})
+
+    async def test_oss_update_manifest_and_local_fallback(self):
+        from xscript_server import oss
+        import hashlib
+
+        sc = (await self.admin.post("/api/scripts", json={"name": "OSS test", "project_name": "ossdemo"})).json()
+        await self.upload_version(self.admin, sc["id"], "print('oss')\n", publish="true")
+        settings = {"oss_enabled": True, "oss_endpoint": "https://oss.example.com",
+                    "oss_bucket": "test-bucket", "oss_access_key_id": "test-id",
+                    "oss_access_key_secret": "test-secret"}
+        await self.admin.put("/api/settings", json=settings)
+        params = {"channel": sc["channel"], "code": 0}
+        pubkey = (await self.admin.get("/api/cards/public-key")).json()["public_key"]
+        try:
+            with mock.patch.object(oss, "publish", return_value="https://cdn.example.com/test.zip"):
+                r = await self.admin.get("/pub/update", params=params)
+            self.assertEqual(r.status_code, 200, r.text)
+            self.assertEqual(r.json()["url"], "https://cdn.example.com/test.zip")
+            manifest = licensing.verify(pubkey, r.json()["manifest"])
+            self.assertEqual(manifest["project"], "ossdemo")
+            with mock.patch.object(oss, "publish", side_effect=OSError("OSS offline")):
+                r = await self.admin.get("/pub/update", params=params)
+            self.assertEqual(r.status_code, 200, r.text)
+            self.assertTrue(r.json()["url"].startswith("/pub/bundle/"))
+            bundle = await self.admin.get(r.json()["url"])
+            self.assertEqual(hashlib.sha256(bundle.content).hexdigest(), manifest["sha256"])
+        finally:
+            await self.admin.put("/api/settings", json={"oss_enabled": False})
 
     async def test_scripts_versions_update_and_deploy(self):
         op = await self.make_user("op3", "operator")
@@ -590,7 +660,10 @@ class ServerTest(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("update_pubkey", r.json()["options"])
         job = await self.wait_job(r.json()["id"])
         self.assertEqual(job["status"], "succeeded", job)
+        # Without an explicit App 名称 the APK shows the 小程序 name, not the project folder / XScript.
+        self.assertEqual(job["app_name"], "热更")
         log = (await self.admin.get("/api/pack/jobs/%d/log" % job["id"])).json()["text"]
+        self.assertIn("--name 热更", log)
         self.assertIn("--project-name hot", log)
         self.assertIn("--update-channel %s" % sc["channel"], log)
         self.assertIn("--script-code %d" % v["version_code"], log)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import time
 from typing import Any
@@ -268,7 +269,13 @@ async def create_job(request: Request, options: str = Form(...), project: Upload
                 # so a renamed pack would never apply an update.
                 raise HTTPException(400, "热更新要求工程名和小程序一致（%s），请清空高级选项里的工程名" % sc.project_name)
             o.project_name = o.project_name or sc.project_name
+            o.app_name = o.app_name.strip() or sc.name
             o.protect = o.protect or sc.protect
+        elif not o.app_name:
+            # Uploaded zips have no script metadata; the archive name is the closest thing the
+            # launcher can show, and beats falling back to the extracted folder ("src").
+            upload_name = os.path.basename((project.filename or "").replace("\\", "/"))
+            o.app_name = os.path.splitext(upload_name)[0].strip()[:64]
         opts: dict[str, Any] = o.model_dump(exclude={"app_id", "app_name", "version", "version_code", "project_name"})
         if from_script:
             opts.update(script_version_id=v.id, script_name=sc.name, script_version=v.version,

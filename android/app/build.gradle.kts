@@ -161,7 +161,11 @@ val preparePack by tasks.registering {
     val name = packProp("project_name")
     val label = packProp("app_name", name)
     val icon = packProp("icon")
-    inputs.property("pack", pack.toString())
+    // Track each generated input explicitly so changing the displayed app name cannot
+    // leave an older pack.xml in Gradle's up-to-date output.
+    inputs.property("app_name", label)
+    inputs.property("project_name", name)
+    inputs.property("icon", icon)
     if (src.isNotEmpty()) inputs.dir(src)
     outputs.dir(out)
     doLast {

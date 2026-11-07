@@ -9,12 +9,13 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
+import logging
 import re
 import shutil
 import time
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
@@ -22,13 +23,16 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from .. import licensing
+from .. import oss as objectstore
 from .. import scripts as store
+from ..audit import get_settings
 from ..deps import Principal, admin, apk_limit, ctx, db_session, operator, pub_limit, record, viewer
 from ..models import Script, ScriptVersion
 from ..packer import PROJECT_NAME
 
 router = APIRouter(prefix="/api/scripts", tags=["scripts"])
 public = APIRouter(prefix="/pub", tags=["public"], dependencies=[Depends(pub_limit)])
+log = logging.getLogger(__name__)
 
 VERSION_RE = r"^[0-9A-Za-z.\-_+]{1,32}$"
 # A deploy travels as one base64 WebSocket frame; OkHttp and uvicorn both cap frames at 16 MiB.
@@ -223,13 +227,31 @@ async def upload_version(script_id: int, request: Request, file: UploadFile = Fi
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
+def warm_oss(c, script_id: int, version_id: int) -> None:
+    """Best-effort pre-upload of the bundle so the first /pub/update response is fast."""
+    with c.db.session() as s:
+        sc = s.get(Script, script_id)
+        v = s.get(ScriptVersion, version_id)
+        if sc is None or v is None:
+            return
+        cfg = objectstore.from_settings(c.config, get_settings(s))
+        channel, code, protect = sc.channel, v.version_code, sc.protect
+    if not cfg.active:
+        return
+    try:
+        path, digest, _ = store.bundle(c.config, script_id, version_id, protect)
+        objectstore.publish(cfg, path, objectstore.bundle_key(cfg, channel, code, digest))
+    except Exception:
+        log.warning("热更新包预上传 OSS 失败，将在 /pub/update 时重试", exc_info=True)
+
+
 class PublishIn(BaseModel):
     version_id: int
 
 
 @router.post("/{script_id}/publish")
-def publish_version(script_id: int, body: PublishIn, request: Request, p: Principal = Depends(admin),
-                    s: Session = Depends(db_session)):
+def publish_version(script_id: int, body: PublishIn, request: Request, background: BackgroundTasks,
+                    p: Principal = Depends(admin), s: Session = Depends(db_session)):
     """Make a version current. Packed apps on this channel pick it up (热更新); older = rollback."""
     sc = _get(s, script_id)
     v = _get_version(s, sc, body.version_id)
@@ -239,6 +261,7 @@ def publish_version(script_id: int, body: PublishIn, request: Request, p: Princi
     record(request, s, p, "script.publish", "%s %s" % (sc.name, v.version), {"id": sc.id, "version_id": v.id,
                                                                             "previous": prev})
     s.commit()
+    background.add_task(warm_oss, ctx(request), sc.id, v.id)
     return script_out(sc, s)
 
 
@@ -389,14 +412,25 @@ def check_update(request: Request, channel: str = "", code: int = 0, s: Session 
     if v is None or v.version_code == code:
         return {"update": False}
     c = ctx(request)
+    settings = get_settings(s)
     try:
-        _, digest, size = store.bundle(c.config, sc.id, v.id, sc.protect)
+        bundle_path, digest, size = store.bundle(c.config, sc.id, v.id, sc.protect)
     except RuntimeError as e:
         raise HTTPException(503, str(e)) from None
     manifest = {"channel": sc.channel, "project": sc.project_name, "version": v.version,
                 "version_code": v.version_code, "sha256": digest, "size": size, "iat": int(time.time())}
+    download_url = "/pub/bundle/%s/%d.zip" % (sc.channel, v.version_code)
+    oss_config = objectstore.from_settings(c.config, settings)
+    if oss_config.active:
+        try:
+            download_url = objectstore.publish(
+                oss_config, bundle_path, objectstore.bundle_key(oss_config, sc.channel, v.version_code, digest),
+            )
+        except Exception:
+            # OSS is an optimization; the signed manifest + local download endpoint remain available.
+            log.exception("热更新包上传 OSS 失败，回退到本地下载")
     return {"update": True, "manifest": licensing.sign(c.key, manifest), "notes": v.notes,
-            "url": "/pub/bundle/%s/%d.zip" % (sc.channel, v.version_code)}
+            "url": download_url}
 
 
 @public.get("/bundle/{channel}/{code}.zip", dependencies=[Depends(apk_limit)])

@@ -92,4 +92,4 @@ git pull --ff-only origin main
 git switch -c feat/my-feature
 ```
 
-先按 [扩展规范](EXTENDING.md) 确定影响面，再改代码和测试。上游同步、提交和发布规则见 [贡献指南](../CONTRIBUTING.md)。
+先按 [新功能工作流程](WORKFLOW.md) 明确需求和验收，再按 [扩展规范](EXTENDING.md) 确定影响面、修改代码和测试。功能、交付与发布模板均在工作流程中链接；建议先后顺序见 [迭代计划](ITERATION_PLAN.md)。上游同步、提交和发布规则见 [贡献指南](../CONTRIBUTING.md)。

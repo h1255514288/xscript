@@ -19,6 +19,7 @@ dependencies = [
     "sqlalchemy==2.0.54; python_version < '3.11'",
     "cryptography==50.0.2",
     "python-multipart==0.0.32",
+    "oss2==2.19.1",
 ]
 
 [project.optional-dependencies]

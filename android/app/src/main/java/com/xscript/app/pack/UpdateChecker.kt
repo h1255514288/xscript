@@ -92,8 +92,12 @@ object UpdateChecker {
             ?: error("update manifest signature invalid")
         if (info.code == code) return null
         val path = reply.optString("url")
-        require(path.startsWith("/pub/bundle/")) { "unexpected bundle url" }
-        val zip = get(server + path, MAX_BYTES)
+        val bundleUrl = when {
+            path.startsWith("/pub/bundle/") -> server + path
+            path.startsWith("https://") || path.startsWith("http://") -> path
+            else -> error("unexpected bundle url")
+        }
+        val zip = get(bundleUrl, MAX_BYTES)
         require(UpdateManifest.sha256(zip) == info.sha256) { "bundle checksum mismatch" }
         if (RunState.current(context) == project) return null
         ProjectStore(context).importZip(project, ByteArrayInputStream(zip), replace = true)
