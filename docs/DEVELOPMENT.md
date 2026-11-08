@@ -80,7 +80,7 @@ Windows 后台测试会明确跳过依赖 Unix 进程组/`pkill` 的三个打包
 
 现有 [完整 CI](../.github/workflows/ci.yml) 继续覆盖 Python 3.10/3.12、覆盖率、PostgreSQL、设备 Python 运行时、Android 构建、桌面端和编辑器。新增 [开发工具 CI](../.github/workflows/dev-tools.yml) 在 Windows 与 Linux 验证通用入口。便携入口不代替完整 CI：
 
-- Android：按 [Android 说明](../android/README.md) 安装 JDK、SDK、Python 3.10，并在 Bash / Git Bash 中运行 `android/build.sh`；PowerShell 直接运行 `.sh` 不受支持。
+- Android：按 [Android 说明](../android/README.md) 安装 JDK、SDK、Python 3.10，并在 Bash / Git Bash 中运行 `android/build.sh`。独立 APK 打包可从 PowerShell 调用 `python backend/xscript_pack.py ...`；Windows 入口会查找 `PATH` 中的 Git Bash，环境路径建议用正斜杠，见 [打包说明](PACKAGING.md)。
 - 设备运行时：沿用 [根目录测试说明](../README.md#开发与测试) 的 `.venv-rt` 和手机依赖版本。
 - 桌面端：按 [桌面端说明](../desktop/README.md) 配置独立 Qt 环境，执行前端与 Python 测试。
 - 完整本机检查：依赖齐全的 Bash 环境中运行 `bash scripts/verify.sh`，检查它列出的所有跳过项。

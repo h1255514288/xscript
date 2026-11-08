@@ -73,9 +73,10 @@ object Settings {
         get() = prefs().getString("cloud_group", "") ?: ""
         set(value) = prefs().edit().putString("cloud_group", value.trim()).apply()
 
-    /** Packaged apps: whether the LAN developer server (HTTP API) runs. Off by default there. */
+    /** Packaged apps default to off unless built with --dev-server; a saved choice takes precedence. */
     var devServer: Boolean
-        get() = prefs().getBoolean("dev_server", !com.xscript.app.BuildConfig.PACKAGED)
+        get() = prefs().getBoolean("dev_server",
+            !com.xscript.app.BuildConfig.PACKAGED || com.xscript.app.BuildConfig.PACK_DEV_SERVER)
         set(value) = prefs().edit().putBoolean("dev_server", value).apply()
 
     /** `xscript://run` links: "confirm" (ask each time, default), "allow" or "off". See link.SchemeLink. */
