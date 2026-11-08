@@ -285,20 +285,7 @@ class ProjectStore(val root: File) {
                     throw java.io.IOException("cannot stage the new project")
                 }
                 val backup = File(staging.parentFile, "backup-" + System.nanoTime())
-                val hadTarget = target.exists()
-                if (hadTarget && !target.renameTo(backup)) {
-                    ready.deleteRecursively()
-                    throw java.io.IOException("cannot move the current project aside")
-                }
-                if (!ready.renameTo(target)) {
-                    val restored = !hadTarget || backup.renameTo(target)
-                    ready.deleteRecursively()
-                    throw java.io.IOException(
-                        if (restored) "cannot install the new project; the previous version was restored"
-                        else "cannot install the new project; the previous version is kept at $backup",
-                    )
-                }
-                backup.deleteRecursively()
+                  swapProjectDirectories(ready, target, backup)
             } else if (!copyTree(src, target)) {
                 throw java.io.IOException("cannot copy the project")
             }
@@ -477,5 +464,41 @@ class ProjectStore(val root: File) {
 
         /** The project entry module (source or protected bytecode). */
         fun isEntry(rel: String): Boolean = rel == "__init__.py" || rel == "__init__.pyc"
+    }
+}
+
+/** Keep the old tree recoverable until the complete replacement is installed. */
+internal fun swapProjectDirectories(
+    ready: File,
+    target: File,
+    backup: File,
+    rename: (File, File) -> Boolean = { from, to -> from.renameTo(to) },
+) {
+    val hadTarget = target.exists()
+    try {
+        if (hadTarget && !rename(target, backup)) {
+            throw java.io.IOException("cannot move the current project aside")
+        }
+        try {
+            if (!rename(ready, target)) throw java.io.IOException("directory rename failed")
+        } catch (failure: Exception) {
+            // Filesystem providers may throw instead of returning false. Restore in
+            // both cases, and keep the backup if restoring is itself unsuccessful.
+            val restored = !hadTarget || try {
+                rename(backup, target)
+            } catch (restoreFailure: Exception) {
+                failure.addSuppressed(restoreFailure)
+                false
+            }
+            throw java.io.IOException(
+                if (!hadTarget) "cannot install the new project"
+                else if (restored) "cannot install the new project; the previous version was restored"
+                else "cannot install the new project; the previous version is kept at $backup",
+                failure,
+            )
+        }
+        backup.deleteRecursively()
+    } finally {
+        ready.deleteRecursively()
     }
 }

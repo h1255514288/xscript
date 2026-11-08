@@ -72,6 +72,8 @@ Linux / macOS：
 
 `check` 不带目标时只执行 `repo`。指定多个目标时依次执行；失败立即返回非零退出码；明确选择的组件缺少依赖时报错，不会被当作通过。查看测试输出中的 skip，尤其是浏览器和设备相关用例。
 
+Windows 的 `check webide` 默认逐个执行测试文件，避免多个浏览器实例同时启动导致超时；Linux / macOS 保留 Node 默认并行策略。配置 `CHROME` 为本机 Chrome / Edge 可执行文件路径后执行浏览器用例。
+
 Windows 后台测试会明确跳过依赖 Unix 进程组/`pkill` 的三个打包工作进程用例；这些仍由 Linux CI 验证。没有 Python 3.10 时，加密脚本保护的相关测试也会跳过。扩展测试创建临时符号链接，需要 Windows 开发者模式或具备相应权限的终端。入口会向 Node 测试传递当前 Python 路径，避免依赖 Windows 上未安装的 `python3` 命令；显式设置的 `PYTHON` / `XSCRIPT_TEST_PYTHON` 优先。
 
 `check_repo_files.py` 默认只检查 Git 已跟踪文件；提交前暂存新文件后另跑 `python scripts/check_repo_files.py --staged`。

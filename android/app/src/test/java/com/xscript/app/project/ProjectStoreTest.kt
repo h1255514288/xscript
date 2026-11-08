@@ -130,6 +130,26 @@ class ProjectStoreTest {
     }
 
     @Test
+    fun interruptedImportKeepsTheCurrentVersionAndRemovesItsStagingFiles() {
+        store.createNew("demo")
+        store.writeFile("demo", "keep.py", "KEEP = 1\n", "utf-8")
+        val archive = zip("__init__.py" to "NEW = 2\n", "res/data.txt" to "payload")
+        val input = object : java.io.FilterInputStream(ByteArrayInputStream(archive)) {
+            var remaining = 40
+            override fun read(bytes: ByteArray, offset: Int, length: Int): Int {
+                if (remaining <= 0) throw java.io.IOException("download interrupted")
+                val n = super.read(bytes, offset, minOf(length, remaining))
+                if (n > 0) remaining -= n
+                return n
+            }
+        }
+        assertThrows(java.io.IOException::class.java) { store.importZip("demo", input) }
+        assertEquals("KEEP = 1\n", store.readFile("demo", "keep.py").readText())
+        assertFalse(File(root, "demo/res/data.txt").exists())
+        assertTrue(File(root.parentFile, "import-tmp").listFiles().isNullOrEmpty())
+    }
+
+    @Test
     fun deleteFileRulesProtectEntryAndNonEmptyFolders() {
         store.createNew("demo")
         store.createFile("demo", "pkg/mod.py", "", "utf-8")

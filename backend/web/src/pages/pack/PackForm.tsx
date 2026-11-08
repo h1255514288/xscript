@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -114,6 +114,7 @@ export function PackForm({
   const qc = useQueryClient();
   const [form] = Form.useForm();
   const [project, setProject] = useState<UploadFile[]>([]);
+  const customAppName = useRef(false);
   const [icon, setIcon] = useState<File | null>(null);
   const iconUrl = useMemo(() => (icon ? URL.createObjectURL(icon) : null), [icon]);
   useEffect(() => () => void (iconUrl && URL.revokeObjectURL(iconUrl)), [iconUrl]);
@@ -133,6 +134,14 @@ export function PackForm({
   useEffect(() => {
     if (preset?.script_id) form.setFieldsValue({ source: "script", script_id: preset.script_id, script_version_id: preset.version_id });
   }, [preset, form]);
+  const suggestedName = source === "script"
+    ? scripts.data?.items.find(s => s.id === scriptId)?.name
+    : project[0]?.name.replace(/\.zip$/i, "").trim();
+  useEffect(() => {
+    // Suggestions follow zip replacement, source changes and asynchronously loaded
+    // presets. An explicit edit belongs to the user until they clear the field.
+    if (!customAppName.current) form.setFieldValue("app_name", suggestedName);
+  }, [suggestedName, source, scriptId, form]);
   const needsUrl = !info?.public_url;
   const off = !info?.available;
   // 卡密, 云控 and 热更新 need a public URL the app can reach; keep them off until one is set.
@@ -180,6 +189,9 @@ export function PackForm({
         form={form}
         layout="vertical"
         requiredMark={false}
+        onValuesChange={(changes) => {
+          if ("app_name" in changes) customAppName.current = !!changes.app_name?.trim();
+        }}
         onFinish={(v) => {
           if (source === "upload" && !project.length) {
             message.error("先选择工程 zip");
@@ -222,9 +234,6 @@ export function PackForm({
                 onChange={({ fileList }) => {
                   const picked = fileList.slice(-1);
                   setProject(picked);
-                  // A zip usually carries the script name; keep an explicitly typed 名称.
-                  const suggested = picked[0]?.name.replace(/\.zip$/i, "").trim();
-                  if (suggested && !form.getFieldValue("app_name")) form.setFieldValue("app_name", suggested);
                 }}
               >
                 <div className="dropzone-body">
@@ -247,13 +256,7 @@ export function PackForm({
                     showSearch
                     optionFilterProp="label"
                     options={(scripts.data?.items ?? []).map((s) => ({ value: s.id, label: `${s.name}（${s.project_name}）` }))}
-                    onChange={(id: number) => {
-                      // Packed APKs show the 小程序 name by default; the field stays editable.
-                      form.setFieldsValue({
-                        script_version_id: undefined,
-                        app_name: (scripts.data?.items ?? []).find((s) => s.id === id)?.name,
-                      });
-                    }}
+                    onChange={() => form.setFieldValue("script_version_id", undefined)}
                     notFoundContent="还没有小程序，先到「小程序」页上传"
                   />
                 </Form.Item>
@@ -295,7 +298,7 @@ export function PackForm({
               <Row gutter={12}>
                 <Col span={12}>
                   <Form.Item name="app_name" label="App 名称">
-                    <Input maxLength={64} placeholder="默认用小程序名或工程名" />
+                    <Input maxLength={64} placeholder="默认用小程序名或 zip 文件名" />
                   </Form.Item>
                 </Col>
                 <Col span={12}>
