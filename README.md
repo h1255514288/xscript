@@ -221,7 +221,7 @@ else:
 
 工程可以包含 Python 子模块、资源文件和 `requirements.txt`。第三方依赖是否可用取决于其 Python 版本与 Android 平台支持，并非所有桌面 Python 包都能在设备端安装。
 
-迁移 AScript 工程时，可以使用 `ascript.android.*` 兼容入口；部分接口仍存在行为差异或尚未实现，请先阅读[功能对照](docs/功能对照.md)和[兼容实现说明](docs/ASCRIPT_RECONSTRUCTION.md)。
+迁移 AScript 工程时，可以使用 `ascript.android.*` 兼容入口；部分接口仍存在行为差异或尚未实现，请先阅读[功能对照](docs/功能对照.md)、[兼容实现说明](docs/ASCRIPT_RECONSTRUCTION.md)和 [API 兼容状态与明确未实现项](docs/API.md#模块状态)。HID 硬件通道、AScript V4 密文脚本、NCNN 模型、二进制点阵字库和 AScript 官方云服务不会伪装成可用。
 
 ## 可选组件
 
@@ -247,6 +247,8 @@ python3.10 -m venv .venv
 - [类型存根](ide/python-stubs/README.md)：配置 `xscript.*` 与 `ascript.*` 自动补全。
 
 ## 开发与测试
+
+由你提出需求和验收、由开发者完成实现的完整流程见 [新功能开发流程与协作规范](docs/WORKFLOW.md)；建议顺序见 [迭代计划](docs/ITERATION_PLAN.md)，附需求、交付和发布模板。
 
 Windows、Linux、macOS 的统一入口见 [开发指南](docs/DEVELOPMENT.md)：`python scripts/dev.py doctor` 检查环境，`python scripts/dev.py setup` 安装后台/MCP 与控制台依赖，`python scripts/dev.py check repo python console` 执行对应检查。Android、设备运行时和桌面端仍按下文配置各自环境。
 

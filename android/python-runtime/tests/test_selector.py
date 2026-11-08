@@ -1,5 +1,7 @@
 import unittest
+from unittest.mock import patch
 
+from xscript.android import node as node_mod
 from xscript.android.node import collect_matches, collect_related, match_node
 from xscript.android.tree import Pipeline, parse_xpath, run_xpath
 
@@ -157,6 +159,24 @@ class XPathTest(unittest.TestCase):
     def test_run(self):
         self.assertEqual([n.path for n in run_xpath(TREE, "//TextView[@text='Internet']")], ["0/1/0"])
         self.assertEqual([n.path for n in run_xpath(TREE, "//LinearLayout/Switch")], ["0/1/2"])
+
+    def test_relations_and_filters_start_from_xpath_hits(self):
+        hits = run_xpath(TREE, "//TextView[@text='Internet']")
+        pipe = Pipeline()
+        pipe.add_relation("parent", (1,))
+        self.assertEqual([n.path for n in pipe._run_from(hits)], ["0/1"])
+        pipe.add_filter("text", "exact", "Network")
+        self.assertEqual([n.path for n in pipe._run_from(hits)], ["0/1"])
+        pipe = Pipeline()
+        pipe.add_relation("brother", (0.2,))
+        pipe.add_filter("text", "exact", "Hotspot")
+        self.assertEqual([n.path for n in pipe._run_from(hits)], ["0/1/2"])
+
+        with patch.object(node_mod, "dump", return_value={"roots": TREE}):
+            selected = node_mod.Selector(xpath="//TextView[@text='Internet']").parent(1).text("Network").find()
+            self.assertEqual(selected.path, "0/1")
+            selected = node_mod.Selector(xpath="//TextView[@text='Internet']").brother(0.2).text("Hotspot").find()
+            self.assertEqual(selected.path, "0/1/2")
 
 
 if __name__ == "__main__":

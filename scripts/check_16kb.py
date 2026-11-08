@@ -18,7 +18,8 @@ SDK = os.environ.get("ANDROID_HOME", os.path.expanduser("~/Library/Android/sdk")
 
 
 def tool(name):
-    c = sorted(glob.glob(os.path.join(SDK, "build-tools", "*", name)))
+    executable = name + ".exe" if os.name == "nt" else name
+    c = sorted(glob.glob(os.path.join(SDK, "build-tools", "*", executable)))
     return c[-1] if c else None
 
 
@@ -53,7 +54,8 @@ def main():
 
     za = tool("zipalign")
     if za:
-        r = subprocess.run([za, "-c", "-P", "16", "4", apk], capture_output=True, text=True)
+        r = subprocess.run([za, "-c", "-P", "16", "4", apk], capture_output=True,
+                           text=True, encoding="utf-8", errors="replace")
         ok = r.returncode == 0
         print(("OK   " if ok else "BAD  ") + "zipalign -c -P 16 (uncompressed .so files are 16 KB aligned in the zip)")
         if not ok:
@@ -79,9 +81,9 @@ def main():
     compat = None
     for t in (tool("aapt2"), tool("aapt")):
         if t:
-            args = [t, "dump", "xmltree", "--file", "AndroidManifest.xml", apk] if t.endswith("aapt2") else \
+            args = [t, "dump", "xmltree", "--file", "AndroidManifest.xml", apk] if os.path.basename(t) in ("aapt2", "aapt2.exe") else \
                    [t, "dump", "xmltree", apk, "AndroidManifest.xml"]
-            r = subprocess.run(args, capture_output=True, text=True)
+            r = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", errors="replace")
             if r.returncode == 0:
                 compat = "pageSizeCompat" in r.stdout
                 break

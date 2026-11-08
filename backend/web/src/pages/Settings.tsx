@@ -132,6 +132,43 @@ function AiSettings({ settings }: { settings?: Settings }) {
   );
 }
 
+function OssSettings({ settings }: { settings?: Settings }) {
+  const { message } = App.useApp();
+  const qc = useQueryClient();
+  const [form] = Form.useForm();
+  useEffect(() => {
+    if (settings) form.setFieldsValue(settings);
+  }, [settings, form]);
+  const save = useMutation({
+    mutationFn: (v: Partial<Settings>) => api.put<Settings>("/api/settings", v),
+    onSuccess: (s) => { qc.setQueryData(["settings"], s); message.success("OSS 配置已保存"); },
+    onError: (e) => message.error((e as Error).message),
+  });
+  const state = settings?.oss;
+  return (
+    <Card title="热更新 OSS" style={{ maxWidth: 980 }} loading={!settings}>
+      <Typography.Paragraph type="secondary">
+        开启后，已发布的热更新 ZIP 会自动上传到阿里云 OSS，App 通过签名下载地址从 OSS 获取，后台只负责生成清单。
+        凭据也可以通过 XSCRIPT_OSS_* 环境变量提供；环境变量优先于这里的配置。
+      </Typography.Paragraph>
+      {state && <Alert type={state.enabled && state.configured ? "success" : "info"} showIcon style={{ marginBottom: 16 }}
+        title={state.enabled ? (state.configured ? `已配置：${state.bucket}` : `已开启但未配置：${state.missing.join("、")}`) : "未启用，热更新使用本地文件服务"} />}
+      <Form form={form} layout="vertical" onFinish={save.mutate}>
+        <Form.Item name="oss_enabled" label="启用 OSS" valuePropName="checked"><Switch /></Form.Item>
+        <Form.Item name="oss_endpoint" label="Endpoint" extra="例如 https://oss-cn-hangzhou.aliyuncs.com"><Input placeholder="https://oss-cn-hangzhou.aliyuncs.com" /></Form.Item>
+        <Form.Item name="oss_bucket" label="Bucket"><Input placeholder="my-xscript-bucket" /></Form.Item>
+        <Form.Item name="oss_access_key_id" label="AccessKey ID"><Input /></Form.Item>
+        <Form.Item name="oss_access_key_secret" label="AccessKey Secret" extra={state?.secret_set ? "已保存密钥；留空表示保持不变" : "仅写入服务器，不会回显"}><Input.Password /></Form.Item>
+        <Form.Item name="oss_prefix" label="对象前缀"><Input placeholder="xscript/hot-update" /></Form.Item>
+        <Form.Item name="oss_public_base" label="CDN / 自定义域名（可选）" extra="填写后使用该域名拼接对象路径；留空则使用 OSS 签名 URL"><Input placeholder="https://cdn.example.com" /></Form.Item>
+        <Form.Item name="oss_url_expire" label="签名有效期（秒）"><InputNumber min={60} max={604800} style={{ width: 180 }} /></Form.Item>
+        <Button type="primary" htmlType="submit" loading={save.isPending}>保存 OSS 配置</Button>
+      </Form>
+    </Card>
+  );
+}
+
+
 /** 卡密滥用告警 thresholds (0 turns a check off). */
 function AbuseSettings({ settings }: { settings?: Settings }) {
   const { message } = App.useApp();
@@ -364,9 +401,12 @@ export default function SettingsPage() {
                   key: "storage",
                   label: "备份与存储",
                   children: (
-                    <div style={{ maxWidth: 980 }}>
-                      <MaintenanceSettings settings={s} />
-                    </div>
+                    <Space orientation="vertical" size="large" style={{ width: "100%" }}>
+                      <OssSettings settings={s} />
+                      <div style={{ maxWidth: 980 }}>
+                        <MaintenanceSettings settings={s} />
+                      </div>
+                    </Space>
                   ),
                 },
               ]

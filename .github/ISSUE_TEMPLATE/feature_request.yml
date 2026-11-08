@@ -27,3 +27,25 @@ body:
     attributes:
       label: 兼容性和依赖
       description: 涉及的模块、旧数据、设备权限或额外服务。
+  - type: dropdown
+    id: entry
+    attributes:
+      label: 主要使用入口
+      options:
+        - 不确定，由开发者核对
+        - 手机 App / 设备脚本
+        - Web IDE
+        - 桌面客户端
+        - 管理控制台 / 后台
+        - VS Code / PyCharm 扩展
+        - MCP
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: 本期范围与暂不实现项
+      description: 可以留空；由开发者结合现状补齐，避免一个需求无限扩大。
+  - type: textarea
+    id: priority
+    attributes:
+      label: 优先级与约束
+      description: 为什么现在需要？是否阻塞使用？有哪些设备、时间、兼容性或费用限制？

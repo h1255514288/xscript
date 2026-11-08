@@ -48,6 +48,17 @@ def _prop(value):
     return out.replace("=", "\\=").replace(":", "\\:")
 
 
+def build_command(props_path):
+    """Windows cannot execute a .sh file via CreateProcess; use Git Bash explicitly."""
+    args = [os.path.join(ROOT, "android", "build.sh"), "-q", "-Pxscript.pack=" + props_path]
+    if os.name == "nt":
+        bash = shutil.which("bash")
+        if not bash:
+            raise SystemExit("Windows APK 打包需要 Git Bash：安装 Git for Windows，并将 bash.exe 加入 PATH")
+        args.insert(0, bash)
+    return args
+
+
 def _requirements(project_dir):
     path = os.path.join(project_dir, "requirements.txt")
     if not os.path.isfile(path):
@@ -175,7 +186,7 @@ def main(argv=None):
         task = ":app:assembleRelease" if release else ":app:assembleDebug"
         # build.gradle.kts puts packed builds in build-pack/<app id>/.
         build_dir = os.path.join(ROOT, "android", "app", "build-pack", a.app_id)
-        cmd = [os.path.join(ROOT, "android", "build.sh"), "-q", "-Pxscript.pack=" + props_path]
+        cmd = build_command(props_path)
         env = dict(os.environ, XSCRIPT_GRADLE_TASK=task)
         print("building %s (%s) from %s" % (a.app_id, "release" if release else "debug", project_dir))
         subprocess.run(cmd, check=True, env=env)

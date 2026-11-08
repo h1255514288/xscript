@@ -301,8 +301,7 @@ class Selector(object):
         if self._xpath:
             hits = run_xpath(roots, self._xpath)
             if self._pipe.stages[0][2] or len(self._pipe.stages) > 1:
-                paths = set(n.path for n in hits)
-                hits = [n for n in self._pipe.run(roots) if n.path in paths] if paths else []
+                hits = self._pipe._run_from(hits)
         else:
             hits = self._pipe.run(roots, scope=self._scope)
         return [Node(n.raw, self._mode) for n in hits]

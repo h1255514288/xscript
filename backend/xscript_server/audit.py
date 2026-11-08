@@ -16,6 +16,15 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     # Public base URL of this server, e.g. https://cloud.example.com. Used for the 卡密 server
     # and 云控 URL baked into packed apps.
     "public_url": "",
+    # Hot-update bundles may be offloaded to OSS; credentials are managed in system settings or env.
+    "oss_enabled": False,
+    "oss_endpoint": "",
+    "oss_bucket": "",
+    "oss_access_key_id": "",
+    "oss_access_key_secret": "",
+    "oss_prefix": "xscript/hot-update",
+    "oss_public_base": "",
+    "oss_url_expire": 3600,
     # 存储清理 (0 = keep everything)
     "keep_pack_jobs": 20,      # finished jobs whose APK and log are kept
     "audit_days": 180,

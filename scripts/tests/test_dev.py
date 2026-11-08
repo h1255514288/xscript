@@ -100,6 +100,22 @@ class DevTests(unittest.TestCase):
             self.assertEqual(error.exception.code, 2)
             run.assert_not_called()
 
+    def test_webide_runs_all_files_with_spaces_and_windows_serializes_browsers(self):
+        with tempfile.TemporaryDirectory(prefix="xscript dev ") as tmp:
+            root = Path(tmp)
+            tests = root / "scripts/tests"
+            tests.mkdir(parents=True)
+            for name in ("second.test.cjs", "first test.test.cjs", "ignore.cjs"):
+                (tests / name).touch()
+            for platform in ("nt", "posix"):
+                with self.subTest(platform=platform), patch.object(dev, "ROOT", root), \
+                        patch.object(dev.os, "name", platform), patch.object(dev, "executable", return_value="node"), \
+                        patch.object(dev, "run") as run, contextlib.redirect_stdout(io.StringIO()):
+                    dev.check(["webide"], False)
+                    args = run.call_args.args[0]
+                    self.assertEqual(args[-2:], [str(p.relative_to(root)) for p in sorted(tests.glob("*.test.cjs"))])
+                    self.assertEqual("--test-concurrency=1" in args, platform == "nt")
+
 
 if __name__ == "__main__":
     unittest.main()

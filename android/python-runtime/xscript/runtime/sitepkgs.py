@@ -45,15 +45,40 @@ def device():
 @contextlib.contextmanager
 def lock():
     """Cross-process install lock (script and eval processes may install at the same time)."""
-    import fcntl
-
     os.makedirs(pip_home(), exist_ok=True)
-    with _lock, open(os.path.join(pip_home(), ".lock"), "w") as f:
-        fcntl.flock(f, fcntl.LOCK_EX)
+    with _lock, open(os.path.join(pip_home(), ".lock"), "a+b") as f:
+        if os.name == "nt":
+            import errno
+            import msvcrt
+            import time
+
+            # Windows locks a byte range. Keep byte zero available without truncating
+            # another process's lock file, and block like flock does on Android/Linux.
+            f.seek(0, os.SEEK_END)
+            if not f.tell():
+                f.write(b"\0")
+                f.flush()
+            f.seek(0)
+            while True:
+                try:
+                    msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+                    break
+                except OSError as e:
+                    if e.errno not in (errno.EACCES, errno.EAGAIN, errno.EDEADLK):
+                        raise
+                    time.sleep(0.05)
+        else:
+            import fcntl
+
+            fcntl.flock(f, fcntl.LOCK_EX)
         try:
             yield
         finally:
-            fcntl.flock(f, fcntl.LOCK_UN)
+            if os.name == "nt":
+                f.seek(0)
+                msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(f, fcntl.LOCK_UN)
 
 
 def activate(refresh=False):

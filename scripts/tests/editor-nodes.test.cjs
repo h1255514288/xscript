@@ -29,6 +29,8 @@ test('hitTest picks the deepest, smallest node under the point', () => {
   // equal rects: the later (painted on top) one wins
   const twin = [node('a', 'X', [0, 0, 10, 10]), node('b', 'X', [0, 0, 10, 10])];
   assert.equal(N.hitTest(twin, 5, 5).path, 'b');
+  const nested = [node('0', 'Root', [0, 0, 100, 100], [node('0/0', 'Status', [0, 0, 100, 10], [], {package:'com.android.systemui'})])];
+  assert.equal(N.hitTest(nested, 5, 5, true).path, '0', 'system descendants are excluded from screenshot picking too');
 });
 
 test('ancestry, count and labels', () => {
@@ -54,6 +56,15 @@ test('rows fold collapsed nodes and the filter keeps matches with their ancestor
   assert.deepEqual(N.rows(ROOTS, {filter: '请输入'}).rows.map(x => x.node.path), ['0', '0/0', '0/0/1']);    // hint
   assert.deepEqual(N.rows(ROOTS, {filter: 'nothing'}).rows, []);
   r = N.rows(ROOTS, {limit: 3}); assert.equal(r.rows.length, 3); assert.equal(r.truncated, true);
+});
+
+test('XPath selectors can chain filters and relations without re-querying the whole tree', () => {
+  const app = node('0', 'android.widget.FrameLayout', [0, 0, 100, 100], [
+    node('0/0', 'android.widget.Button', [0, 0, 50, 30], [], {text: 'Open'}),
+    node('0/1', 'android.widget.Button', [0, 30, 50, 60], [], {text: 'Close'}),
+  ]);
+  const code = N.fullText(N.snippet(app.children[0], 'xpath', 0, [app], null, {xpath: '//Button[@text="Open"]', relation: 'brother', index: 0.1}));
+  assert.equal(code, `from xscript.android import node\nhit = node.Selector(xpath='//Button[@text="Open"]').brother(0.1).find(timeout=5)`);
 });
 
 test('string literals escape quotes for Python and XPath', () => {
@@ -86,7 +97,7 @@ test('snippets: find, click, exists, XPath and centre tap', () => {
   assert.deepEqual(N.snippet(b, 'tap'), {imports: ['from xscript.android import action'], code: 'action.click(540, 1045)  # 登录'});
   assert.equal(N.snippet(b, 'nope').code, N.snippet(b, 'find').code);
   assert.equal(N.fullText(N.snippet(b)), "from xscript.android import node\nhit = node.Selector().text('登录').clickable().find(timeout=5)");
-  assert.deepEqual(N.KINDS.map(k => k.id), ['find', 'click', 'exists', 'xpath', 'tap']);
+  assert.deepEqual(N.KINDS.map(k => k.id), ['find', 'click', 'exists', 'xpath', 'tap', 'all', 'long_click']);
 });
 
 test('importEdit adds a missing import after the leading imports, once', () => {
@@ -134,6 +145,61 @@ print(json.dumps(out))
   return JSON.parse(r.stdout);
 };
 
+test('editable conditions use real Python matching for exact, literal contains, regex and booleans', () => {
+  const fixture = [
+    node('0', 'android.widget.Button', [0, 0, 100, 100], [], {text: "登录(1)\nA+B", id: 'demo:id/ok', hint: '账号', package: 'demo', clickable: true, enabled: false}),
+    node('1', 'android.widget.Button', [0, 100, 100, 200], [], {text: 'LOGIN', id: 'demo:id/ok', clickable: false}),
+    node('2', 'android.widget.Button', [0, 200, 100, 300], [], {text: "quote'\\\t\x00", id: 'demo:id/ok', clickable: false}),
+  ];
+  const condition = (field, value, op = 'exact') => ({field, value, op, enabled: true});
+  const cases = [
+    {criteria: [condition('text', 'A+B', 'contains')], expected: ['0']},
+    {criteria: [condition('text', '(?i)(?P<word>login)', 'regex'), condition('id', 'demo:id/ok'), condition('clickable', false)], expected: ['1']},
+    {criteria: [condition('id', '.*:id/ok', 'regex'), condition('text', fixture[2].text)], expected: ['2']},
+    {criteria: [condition('hint', '账号'), condition('package', 'dem', 'contains'), condition('enabled', false)], expected: ['0']},
+    {criteria: [condition('text', '登录.*', 'regex')], expected: ['0']},
+    {criteria: [condition('text', '登录', 'regex')], expected: []},
+    {criteria: [condition('type', 'android.widget.Button')], expected: ['0', '1', '2']},
+    {criteria: [condition('text', '[' , 'regex')], error: true},
+  ];
+  const payload = cases.map(c => ({
+    query: N.tryCode(fixture[0], 'click', 1, fixture, c.criteria),
+    generated: N.fullText(N.snippet(fixture[0], 'find', 1, fixture, c.criteria)).replace(/timeout=5/g, 'timeout=0'),
+  }));
+  const py = `
+import json, sys, re
+from xscript.android import node
+roots, cases = json.loads(sys.argv[1]), json.loads(sys.argv[2])
+def dump(mode=0):
+    assert mode == 1
+    return {"roots": roots}
+node.dump = dump
+node.Node.click = lambda self: (_ for _ in ()).throw(AssertionError("test clicked"))
+out = []
+for c in cases:
+    env = {}
+    try:
+        exec(c["query"], env)
+        matches = [h[0] for h in env["_result"]]
+        exec(c["generated"], env)
+        hit = env.get("hit")
+        out.append({"matches": matches, "hit": hit.path if hit else None})
+    except re.error:
+        out.append({"error": True})
+print(json.dumps(out))
+`;
+  const r = spawnSync(process.env.PYTHON || 'python3', ['-c', py, JSON.stringify(fixture), JSON.stringify(payload)],
+    {env: {...process.env, PYTHONPATH: path.resolve(__dirname, '../../android/python-runtime')}, encoding: 'utf8'});
+  assert.equal(r.status, 0, r.stderr);
+  JSON.parse(r.stdout).forEach((result, i) => assert.deepEqual(result, cases[i].error ? {error: true} : {matches: cases[i].expected, hit: cases[i].expected[0] || null}));
+  assert.match(payload[1].query, /regex\(False\)\.id\(/, 'regex does not leak into the next exact field');
+  assert.throws(() => N.selectorChain(fixture[0], 'node', 0, fixture, []), /至少勾选/);
+  assert.equal(N.criteriaError([condition('text', '', 'regex')]), '包含或正则条件不能为空');
+  assert.equal(N.criteriaError([condition('text', '')]), '', 'exact empty string is a valid condition');
+  for (const n of fixture) assert.equal(N.selectorChain(n, 'node', 0, fixture, N.defaultCriteria(n, fixture)), N.selectorChain(n, 'node', 0, fixture));
+  assert.match(N.tryVerdict('[["1",0,0,10,10]]', fixture[0], true).text, /在线测试：匹配 1 个/);
+});
+
 // A settings-style list: every row's title shares one resource id, two rows even share their text.
 const LIST = [node('0', 'android.widget.FrameLayout', [0, 0, 1080, 2400], [
   node('0/0', 'android.widget.TextView', [0, 100, 1080, 200], [], {id: 'android:id/title', text: 'Network & internet'}),
@@ -145,6 +211,27 @@ const LIST = [node('0', 'android.widget.FrameLayout', [0, 0, 1080, 2400], [
   node('0/6', 'android.widget.Button', [0, 700, 1080, 800], [], {id: 'com.demo:id/ok', text: 'OK', clickable: true}),
 ])];
 const atIn = (roots, p) => { let hit = null; const walk = l => l.forEach(n => { if (n.path === p) hit = n; walk(n.children); }); walk(roots); return hit; };
+
+test('relationship, all-match, XPath and system exclusion code agrees with runtime behavior', () => {
+  const from = atIn(LIST, '0/1');
+  const make = (kind, options, criteria = null) => N.fullText(N.snippet(from, kind, 0, LIST, criteria, options)).replace(/timeout=5/g, 'timeout=0');
+  const fixture = [...LIST, node('1', 'android.widget.TextView', [0, 0, 1, 1], [], {text: 'Apps', package: 'com.android.systemui'})];
+  const cases = [
+    {p:'0', kind:'parent', code:make('find', {relation:'parent', index:1})},
+    {p:'0/2', kind:'brother', code:make('find', {relation:'brother', index:0.1})},
+    {p:'0/1', kind:'xpath', code:make('xpath', {xpath:'//TextView[@text="Apps"]', excludeSystem:true})},
+    {p:'0/3', kind:'all', code:make('all', {}, [{field:'text', value:'Battery', op:'exact', enabled:true}])+'\nhit = hits[-1]'},
+    {p:'0/6', kind:'child', code:N.fullText(N.snippet(LIST[0], 'find', 0, LIST, null, {relation:'child',index:-1})).replace(/timeout=5/g,'timeout=0')},
+    {p:'0/1', kind:'exclude', code:make('find',{excludeSystem:true},[{field:'text',value:'Apps',op:'exact',enabled:true}])},
+  ];
+  for (const result of runPy(fixture,cases)) assert.equal(result.hit,result.p,result.kind);
+  assert.equal(N.rows(fixture,{excludeSystem:true}).rows.some(r=>r.node.path==='1'),false);
+  assert.match(make('xpath',{xpath:'//TextView[@text="Apps"]',relation:'parent',index:1}),/xpath='\/\/TextView\[@text="Apps"\]'\)\.parent\(1\)/);
+  assert.throws(()=>make('find',{relation:'child',index:NaN}),/有效数字/);
+  assert.match(make('find',{},[{field:'childCount',value:0,op:'exact',enabled:true}]),/child_count\(0\)/);
+  assert.match(N.criteriaError([{field:'depth',value:-1,op:'exact',enabled:true}]),/非负整数/);
+  assert.doesNotMatch(N.tryCode(from,'long_click'),/\.long_click\(/);
+});
 
 test('a resource id shared by several nodes gets text / desc / path added until the selector is unique', () => {
   const sel = p => N.selectorChain(atIn(LIST, p), 'node', 0, LIST);
@@ -216,7 +303,9 @@ print(json.dumps(out))
   assert.deepEqual([other.ok, other.hits.map(h => h.self)], [false, [false, true]], 'same path but another control is not the picked one');
   assert.equal(N.tryVerdict('not json', at('0/1')).text, '试一下：没找到。界面可能变了，点「重新获取」再试');
   const twenty = JSON.stringify(Array.from({length: 20}, () => ['0/1', 0, 0, 1, 1]));
-  assert.equal(N.tryVerdict(twenty, at('0/1')).text, '试一下：找到 20 个及以上，第一个是选中的节点（.find 用第一个）');
+  assert.equal(N.tryVerdict(twenty, at('0/1')).text, '试一下：找到 20 个，第一个是选中的节点（.find 用第一个）');
+  const fifty = JSON.stringify(Array.from({length:50}, (_, i) => ['0/' + i, 0, 0, 1, 1]));
+  assert.equal(N.tryVerdict(fifty, at('0/1')).text, '试一下：找到 50 个及以上，第一个不是选中的节点（路径 0/0）');
 });
 
 test('在手机上运行 code really runs the inserted snippet and answers in _result', () => {

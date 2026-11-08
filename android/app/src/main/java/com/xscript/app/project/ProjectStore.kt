@@ -275,18 +275,40 @@ class ProjectStore(val root: File) {
             val src = if (prefix.isEmpty()) staging else File(staging, prefix.trimEnd('/'))
             // Validate before touching the existing project so a bad zip leaves it intact.
             require(hasEntry(src) || (!replace && hasEntry(target))) { "zip has no __init__.py" }
-            if (replace) deleteTree(target)
-            target.mkdirs()
-            src.walkTopDown().filter { it.isFile }.forEach { f ->
-                val out = File(target, f.relativeTo(src).path)
-                out.parentFile?.mkdirs()
-                if (out.exists()) out.delete()
-                if (!f.renameTo(out)) f.copyTo(out, overwrite = true)
+            if (replace) {
+                // Hot updates replace a running project's sources: build the new tree beside it and swap
+                // directories, so a copy/rename failure restores the previous version instead of leaving
+                // a half-written project that can no longer start.
+                val ready = File(staging.parentFile, "ready-" + System.nanoTime())
+                if (!src.renameTo(ready) && !copyTree(src, ready)) {
+                    ready.deleteRecursively()
+                    throw java.io.IOException("cannot stage the new project")
+                }
+                val backup = File(staging.parentFile, "backup-" + System.nanoTime())
+                  swapProjectDirectories(ready, target, backup)
+            } else if (!copyTree(src, target)) {
+                throw java.io.IOException("cannot copy the project")
             }
         } finally {
             staging.deleteRecursively()
         }
         return target
+    }
+
+    /** Merge [src] into [dst]; returns false and leaves [dst] for the caller to clean up on failure. */
+    private fun copyTree(src: File, dst: File): Boolean {
+        dst.mkdirs()
+        return try {
+            src.walkTopDown().filter { it.isFile }.forEach { f ->
+                val out = File(dst, f.relativeTo(src).path)
+                out.parentFile?.mkdirs()
+                if (out.exists()) out.delete()
+                if (!f.renameTo(out)) f.copyTo(out, overwrite = true)
+            }
+            hasEntry(dst)
+        } catch (_: Exception) {
+            false
+        }
     }
 
     fun exportZip(name: String, out: java.io.OutputStream) {
@@ -442,5 +464,41 @@ class ProjectStore(val root: File) {
 
         /** The project entry module (source or protected bytecode). */
         fun isEntry(rel: String): Boolean = rel == "__init__.py" || rel == "__init__.pyc"
+    }
+}
+
+/** Keep the old tree recoverable until the complete replacement is installed. */
+internal fun swapProjectDirectories(
+    ready: File,
+    target: File,
+    backup: File,
+    rename: (File, File) -> Boolean = { from, to -> from.renameTo(to) },
+) {
+    val hadTarget = target.exists()
+    try {
+        if (hadTarget && !rename(target, backup)) {
+            throw java.io.IOException("cannot move the current project aside")
+        }
+        try {
+            if (!rename(ready, target)) throw java.io.IOException("directory rename failed")
+        } catch (failure: Exception) {
+            // Filesystem providers may throw instead of returning false. Restore in
+            // both cases, and keep the backup if restoring is itself unsuccessful.
+            val restored = !hadTarget || try {
+                rename(backup, target)
+            } catch (restoreFailure: Exception) {
+                failure.addSuppressed(restoreFailure)
+                false
+            }
+            throw java.io.IOException(
+                if (!hadTarget) "cannot install the new project"
+                else if (restored) "cannot install the new project; the previous version was restored"
+                else "cannot install the new project; the previous version is kept at $backup",
+                failure,
+            )
+        }
+        backup.deleteRecursively()
+    } finally {
+        ready.deleteRecursively()
     }
 }

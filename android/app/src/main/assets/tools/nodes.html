@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>节点工作台 · XScript</title>
+<script>(function(){var m=localStorage.getItem('xs-theme');document.documentElement.dataset.theme=m==='dark'||(m!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';})();</script>
+<link rel="stylesheet" href="/tools/ui/tools.css"><link rel="stylesheet" href="/tools/ui/editor.css"><link rel="stylesheet" href="/tools/ui/nodes.css">
+</head>
+<body class="nodes-page">
+<header class="xs-appbar" data-page="nodes"></header>
+<main id="node-panel" class="node-workbench" aria-label="节点工作台">
+ <div class="node-toolbar">
+  <div class="node-title"><strong>节点工作台</strong><span id="node-channel" class="node-channel" data-state="waiting">读取设备状态…</span></div>
+  <div class="node-toolgroup" role="group" aria-label="读取节点">
+   <button id="node-take" type="button" class="primary" title="重新读取设备节点"><i data-i="refresh"></i><span id="node-take-label">获取节点</span></button>
+   <label class="node-full"><input type="checkbox" id="node-full"> 完整树</label>
+   <label><input type="checkbox" id="node-exclude-system"> 排除系统栏</label>
+  </div>
+  <span class="spacer"></span>
+  <div class="node-toolgroup" role="group" aria-label="显示与帮助">
+   <label class="node-size">字号 <input id="node-font" type="range" min="12" max="20" value="13" aria-label="节点和属性字号"></label>
+   <details class="node-help"><summary class="icon-btn" title="快捷键和提示" aria-label="快捷键和提示"><i data-i="help"></i></summary><div class="node-help-panel"><strong>快捷键</strong><dl><dt><kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Enter</kbd></dt><dd>在线测试</dd><dt><kbd>/</kbd></dt><dd>搜索节点</dd><dt><kbd>Esc</kbd></dt><dd>清空搜索</dd><dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>在树中移动</dd><dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>折叠 / 展开</dd><dt><kbd>Enter</kbd></dt><dd>插入到 IDE</dd></dl><p>在线测试只查找，不执行点击；复制代码后可贴到脚本里。</p></div></details>
+   <button type="button" id="node-back"><i data-i="left"></i>返回 IDE</button>
+  </div>
+  <button type="button" id="node-toggle" hidden></button><button type="button" id="node-close" hidden></button>
+ </div>
+ <div class="node-body">
+  <section class="node-screen" aria-label="设备截图">
+   <div class="node-pane-heading"><strong>设备画面</strong><span id="node-shot-state" class="node-badge">等待截图</span><span class="spacer"></span><label><input id="node-outlines" type="checkbox"> 节点边界</label></div>
+   <div class="node-zoom-bar"><button id="node-fit" type="button">适应窗口</button><label>缩放 <input id="node-zoom" type="range" min="50" max="250" step="10" value="100" aria-label="截图缩放比例"></label><output id="node-zoom-value">100%</output></div>
+   <div class="node-screen-scroll"><div class="node-frame"><img id="node-shot" alt="设备截图，点击选择节点" hidden><div id="node-all-boxes"></div><div id="node-box" class="node-box" hidden></div><div id="node-hover-box" class="node-hover-box" hidden></div><div id="node-hits"></div></div></div>
+   <p id="node-shot-note" class="node-empty" hidden>没有截图，请在手机上授权屏幕截取。仍可从节点树选择。</p>
+   <p id="node-hover-note" class="node-condition-help">悬停预览节点，点击选取；测试截图可点选匹配结果。</p>
+  </section>
+  <div class="node-resizer" id="node-resize-screen" role="separator" aria-label="设备画面宽度" aria-orientation="vertical" tabindex="0"></div>
+  <section class="node-tree-pane" aria-label="节点树浏览">
+   <div class="node-pane-heading"><input id="node-filter" type="search" placeholder="搜索文字 / ID / 描述 / 类名" aria-label="筛选节点" autocomplete="off"><span id="node-tree-count" class="node-count" aria-live="polite">0</span><button id="node-expand" type="button" title="展开全部节点">展开</button><button id="node-collapse" type="button" title="折叠全部节点">折叠</button></div>
+   <select id="node-recent" aria-label="最近选过的节点"></select>
+   <label id="node-result-filter" hidden><input id="node-only-matches" type="checkbox"> 只看本次匹配结果（含父级）<span id="node-match-count" class="node-count"></span></label>
+   <div id="node-tree" class="node-tree" role="tree" aria-label="节点树"></div>
+  </section>
+  <div class="node-resizer" id="node-resize-detail" role="separator" aria-label="属性面板宽度" aria-orientation="vertical" tabindex="0"></div>
+  <aside class="node-detail" aria-label="属性与选择器">
+   <div class="node-pane-heading"><strong>属性与选择器</strong><span id="node-selected-name"></span></div>
+   <nav id="node-breadcrumb" aria-label="所选节点的父级路径"></nav>
+   <div class="node-detail-scroll">
+    <details class="node-properties"><summary>查看全部节点属性</summary><dl id="node-attrs" class="node-attrs"></dl></details>
+    <div class="node-code-row"><label for="node-kind">生成</label><select id="node-kind"></select></div>
+    <div id="node-condition-layout" class="node-condition-layout" aria-label="属性排列方式"><button id="node-layout-grouped" type="button" aria-pressed="true">按模块</button><button id="node-layout-custom" type="button" aria-pressed="false">自定义顺序</button><button id="node-layout-reset" type="button" hidden>恢复默认顺序</button></div>
+    <fieldset id="node-criteria" class="node-criteria" hidden><legend>匹配条件 · 勾选项同时满足</legend><div id="node-conditions"></div><p class="node-condition-help">正则使用 Python 整段匹配，如 <code>.*登录.*</code>；忽略大小写用 <code>(?i)login</code>。包含按普通文字匹配。</p></fieldset>
+    <label id="node-xpath-wrap" hidden>XPath <input id="node-xpath" type="text" spellcheck="false" placeholder="//TextView[@text='登录']"></label>
+    <fieldset class="node-relations" id="node-relations"><legend>关系定位</legend><select id="node-relation" aria-label="关系定位"><option value="">当前节点</option><option value="parent">父节点</option><option value="child">子节点</option><option value="brother">兄弟节点</option></select><input id="node-relation-index" type="number" step="any" value="1" aria-label="关系序号"><p class="node-condition-help">父级 1 为直接父节点；子级 1 为第一个、-1 为最后一个；兄弟 0.1 为下一个、-0.1 为上一个。XPath 查找到的节点也可以再叠加关系。</p></fieldset>
+    <p id="node-criteria-note" class="node-condition-help" hidden></p><p id="node-condition-error" class="node-condition-error" role="status"></p>
+    <p id="node-alt" class="node-alt" hidden><span id="node-alt-text"></span><button id="node-alt-use" type="button">换成它</button></p>
+   </div>
+   <div class="node-detail-footer">
+    <label for="node-code" class="node-code-label">生成的 Python 代码</label><textarea id="node-code" readonly rows="4" aria-label="生成的代码" spellcheck="false"></textarea>
+    <div class="node-actions"><button id="node-try" type="button" class="primary" disabled title="在线只查找节点，不执行点击（Ctrl/⌘ + Enter）">在线测试</button><button id="node-cancel" type="button" hidden>停止等待</button><button id="node-reset" type="button" disabled>重置测试</button><button id="node-copy" type="button" disabled title="复制生成的完整代码">复制代码</button><button id="node-copy-selector" type="button" disabled title="只复制选择器表达式">复制选择器</button><button id="node-insert" type="button" disabled>插入到 IDE</button><button id="node-run" type="button" hidden>在手机上运行</button></div>
+    <span id="node-try-result" class="node-try-result" role="status" aria-live="polite"></span><ol id="node-matches" class="node-matches" aria-label="测试匹配节点"></ol>
+   </div>
+  </aside>
+ </div>
+ <footer class="node-status"><span id="node-info" role="status" aria-live="polite">正在连接设备…</span><button id="node-a11y" type="button" hidden>打开手机无障碍设置</button><span id="node-message" role="status" aria-live="polite"></span></footer>
+</main>
+<script src="/tools/ui/combo.js?f=common.js,editor-nodes.js,nodes-page.js"></script>
+</body></html>

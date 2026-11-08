@@ -220,7 +220,7 @@ def main():
         api("POST", "/projects/" + PROJECT, {})
         api("PUT", "/projects/%s/files" % PROJECT, {"files": [{"path": "__init__.py", "encoding": "base64", "content": base64.b64encode(SCRIPT.encode()).decode()}]})
     try:
-        # XS_ONLY=orientation|menus|menu_icon|error_flash|appearance|cpu_ticks|scripted_api runs just that section
+        # XS_ONLY=idle_timing|orientation|menus|menu_icon|error_flash|appearance|cpu_ticks|scripted_api runs one section
         only = os.environ.get("XS_ONLY")
         if only:
             home()
@@ -300,6 +300,29 @@ def inside_safe_area(o, st=None):
             and o["y"] >= i["top"] and o["y"] + o["height"] <= H - i["bottom"])
 
 
+def idle_timing():
+    """Measure pill and panel independently, without slow UI dumps in the timed interval."""
+    check(run_in_background(PROJECT), "timing: script is running")
+    for mode in ("pill", "panel"):
+        # Recreate the window so the pill starts with a fresh idle timer.
+        open_app()
+        check(wait(lambda: not overlay()["visible"], 8), "timing: foreground hides the window")
+        started = time.monotonic()
+        home()
+        shown = wait(lambda: overlay() if overlay().get("state") == "pill" else None, 8, 0.1)
+        if not check(bool(shown), "timing: fresh pill appears"):
+            continue
+        if mode == "panel":
+            started = time.monotonic()
+            if not check(to_mode("panel"), "timing: open panel"):
+                continue
+        ball = wait(lambda: overlay().get("state") == "ball", 6, 0.1)
+        elapsed = time.monotonic() - started
+        print("MEASURE %s -> ball: %.3f seconds (HTTP observation)" % (mode, elapsed), flush=True)
+        # Allow polling/ADB/scheduling overhead; exact 3000 ms is asserted by JVM tests.
+        check(bool(ball) and 2.5 <= elapsed <= 4.5, "%s uses the 3-second idle delay" % mode, elapsed)
+
+
 def flow():
     # 1 foreground: nothing shown, even with a running script
     open_app()
@@ -340,8 +363,8 @@ def flow():
     check(bool(t1) and bool(t2) and t1 != t2, "timer advances", (t1, t2))
 
     # 3 idle: shrinks to a dimmed 48dp ball at the same edge
-    check(wait(lambda: overlay()["state"] == "ball", 12), "after ~5 s idle the pill shrinks to the ball", overlay())
-    check(time.time() - t_shown >= 4, "…not earlier than the idle delay", time.time() - t_shown)
+    check(wait(lambda: overlay()["state"] == "ball", 8), "after ~3 s idle the pill shrinks to the ball", overlay())
+    check(time.time() - t_shown >= 2.5, "…not earlier than the idle delay", time.time() - t_shown)
     time.sleep(0.5)
     o = overlay()
     check(abs(o["width"] - dp(48)) <= 2 and abs(o["height"] - dp(48)) <= 2, "ball is 48dp x 48dp (touch target)", (o["width"], o["height"], dp(48)))
@@ -604,7 +627,7 @@ def menus():
                 labels = [t for t in texts if t in ("hello", "bye")]
                 check(sorted(labels) == ["bye", "hello"], "script buttons show their id as the label", texts)
             shot("menu_removed" if remove else "menu")
-            to_mode("panel")   # uiautomator dumps are slow; the panel shrinks to the ball after 10 s idle
+            to_mode("panel")   # UI dumps are slow; reopen after the fixed 3-second idle delay
             check(tap_overlay("悬浮窗按钮 hello"), "tap the hello button")
             check(wait(lambda: "MENU_HELLO_CLICKED" in json.dumps(api("GET", "/logs")), 8), "hello callback ran in the script (no-arg callback)")
             to_mode("panel")

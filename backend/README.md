@@ -2,6 +2,8 @@
 
 XScript 的 PC / 服务器端。这里的内容都不在手机上运行。
 
+发布、回滚、构建机故障和 OSS 回退的操作步骤见 [更新与构建机验收](../docs/UPDATE_BUILD_ACCEPTANCE.md)，字节码产物与解释器要求见 [代码保护](../docs/CODE_PROTECTION.md)。
+
 ![管理后台概览：在线设备、卡密、定时任务统计和近 30 天激活 / 新设备趋势图（演示数据）](../docs/images/admin-overview.png)
 
 **Python 版本**：后台、MCP 服务和构建机统一要求 Python 3.10+（设备上内置的也是 3.10，`ide/python-stubs` 类型存根 3.8 起可用）。3.11 及以上使用 `websockets 17` / `sqlalchemy 2.1`，3.10 由 `pyproject.toml` 的环境标记自动装 `websockets 16.1.1` / `sqlalchemy 2.0.54`；两条路径的后台和 MCP 测试都通过。`scripts/verify.sh` 会在 `.venv310`（uv 自动创建）里用 3.10 再跑一遍。
@@ -162,6 +164,7 @@ PYTHONPATH=backend .venv/bin/python -m unittest discover -s backend/tests
 - **`/license/*` 是公开的**，这是有意设计（应用在激活前就要调用）。猜测卡密按 IP 限流；只有有效且未作废的卡密才能拿到签名令牌。
 - **`/pub/*` 按客户端 IP 限流**（每分钟 120 次请求；APK 和包下载每 10 分钟 20 次）。部署在代理后面时，请以 `--behind-proxy` 启动，这样限流针对的是真实客户端 IP，而不是代理。
 - **`/pub/*` 同样是公开的**：`/pub/update` + `/pub/bundle/…` 向打包应用提供小程序的*已发布*版本（热更新；清单用卡密私钥签名，App 会校验 zip 的 sha256），`/pub/d/<token>` 通过分享链接提供 APK。任何知道渠道 id 的人都能下载已发布的包（如果在意，请开启代码保护）；分享链接可以设置过期，也可在控制台删除。
+- **热更新 OSS（可选）**：系统设置 → 备份与存储里启用并配置阿里云 OSS，或使用 `XSCRIPT_OSS_ENABLED=1`、`XSCRIPT_OSS_ENDPOINT`、`XSCRIPT_OSS_BUCKET`、`XSCRIPT_OSS_ACCESS_KEY_ID`、`XSCRIPT_OSS_ACCESS_KEY_SECRET`、`XSCRIPT_OSS_PREFIX`、`XSCRIPT_OSS_PUBLIC_BASE`、`XSCRIPT_OSS_URL_EXPIRE` 环境变量（环境变量优先）。仅热更新 ZIP 会在首次检查新版本时按需上传，App 获取 OSS 临时签名 URL 或自定义 CDN URL；后台 OSS 上传异常会退回本地下载。若用 `XSCRIPT_OSS_PUBLIC_BASE`，请确保该域名允许读取对应对象且已经配置 HTTPS；AccessKey 应限制为目标 Bucket 的最小权限。
 - **代码保护** 把项目编译为 Python 3.10 字节码（服务器上需要 `python3.10` 或 `XSCRIPT_BUILD_PYTHON`）。它能防止随手复制，但防不了反编译。
 - **打包任务** 会在本机用上传的项目运行 Gradle。只把操作员角色分配给你在这方面信得过的人。上传的 zip 会检查路径穿越、符号链接和大小（上传 256 MB，解压后 512 MB）。Release 签名密码来自环境变量（`XSCRIPT_KEYSTORE`、`XSCRIPT_KEY_ALIAS`、`XSCRIPT_STORE_PASS`、`XSCRIPT_KEY_PASS`），并通过环境变量而不是 argv 传给构建。
 - 请备份数据目录。不要把它提交到 git（`.gitignore` 已覆盖 `xscript-data/`、`keys/`、`*.pem`）。

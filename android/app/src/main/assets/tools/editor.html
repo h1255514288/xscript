@@ -48,19 +48,6 @@
    <div class="ide-heading"><strong>手机截图</strong><button id="shot-take" type="button">重新截图</button><button id="shot-save" type="button" disabled title="保存为当前工程 res/img/shot-时间.png">保存到工程</button><button id="shot-download" type="button" disabled>下载</button><button id="shot-insert" type="button" disabled title="在编辑器光标处插入 x, y">插入坐标</button><span id="shot-swatch" class="shot-swatch" hidden></span><span id="shot-info" class="shot-info" role="status" aria-live="polite"></span><span class="spacer"></span><button id="shot-close" type="button" aria-label="关闭截图面板">关闭</button></div>
    <div class="shot-body"><canvas id="shot-canvas" width="1" height="1" hidden aria-label="手机截图，点击取坐标和颜色"></canvas></div>
   </section>
-  <section id="node-panel" class="ide-shot ide-nodes" aria-label="节点工具" hidden>
-   <div class="ide-heading"><strong>节点</strong><button id="node-take" type="button" title="重新读取手机当前界面的节点和截图">重新获取</button><label class="node-full" title="包含没有文字、不可点击的布局节点"><input type="checkbox" id="node-full"> 完整树</label><input id="node-filter" type="search" placeholder="筛选：文字 / id / 类名" aria-label="筛选节点" autocomplete="off" spellcheck="false"><select id="node-recent" aria-label="最近选过的节点" title="最近点选过的节点（最多 8 个）：选一个，在当前界面里重新找到并选中它"></select><span id="node-info" class="shot-info" role="status" aria-live="polite"></span><button id="node-a11y" type="button" hidden title="在手机上打开系统的无障碍设置页，开启 XScript 后回来点「重新获取」">打开手机无障碍设置</button><span class="spacer"></span><button id="node-close" type="button" aria-label="关闭节点面板">关闭</button></div>
-   <div class="node-body">
-    <div class="node-screen"><div class="node-frame"><img id="node-shot" alt="手机截图，点击选中该处的节点" hidden><div id="node-box" class="node-box" hidden></div><div id="node-hits"></div></div><p id="node-shot-note" class="node-empty" hidden>没有截图（手机未授权屏幕截取），可在右侧树里选节点</p></div>
-    <div id="node-tree" class="node-tree" role="tree" aria-label="节点树"></div>
-    <div class="node-detail"><dl id="node-attrs" class="node-attrs"></dl>
-     <div class="node-code-row"><label for="node-kind">生成</label><select id="node-kind"></select></div>
-     <textarea id="node-code" readonly rows="3" aria-label="生成的代码" spellcheck="false"></textarea>
-     <p id="node-alt" class="node-alt" hidden><span id="node-alt-text"></span><button id="node-alt-use" type="button" title="选中这个节点，按它生成代码">换成它</button></p>
-     <div class="node-actions"><span id="node-try-result" class="node-try-result" role="status" aria-live="polite"></span><button id="node-run" type="button" hidden title="把刚插入的这段代码在手机上真正运行一次，结果显示在左边">在手机上运行</button><button id="node-try" type="button" disabled title="在手机上按这段代码的条件查找一次（不会点击），截图上框出找到的节点">试一下</button><button id="node-copy" type="button" disabled>复制</button><button id="node-insert" type="button" class="primary" disabled title="插入到编辑器光标处，缺少的 import 加到文件开头（树里按 Enter 也可以）">插入到光标</button></div>
-    </div>
-   </div>
-  </section>
   <div class="ide-status"><span class="ide-status-left"><span id="message" role="status" aria-live="polite">正在读取工程…</span><button id="run-a11y" type="button" hidden title="在手机上打开所缺权限的系统设置页（截图权限则弹出授权），开启后再运行">打开手机无障碍设置</button></span><span class="ide-status-right"><button id="problems" type="button" class="problems" title="语法检查（本地，不执行代码）；点击跳到下一个问题" hidden></button><label class="auto-complete" title="Ctrl+空格 随时触发补全"><input type="checkbox" id="auto-complete" checked> 自动补全</label><span id="cursor">行 1，列 1</span></span></div>
   <section class="ide-debug" aria-label="断点调试">
    <div class="ide-heading"><strong>断点调试</strong><span id="debug-state" role="status">未连接</span><span class="spacer"></span>

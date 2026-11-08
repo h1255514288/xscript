@@ -149,7 +149,10 @@ def check(targets: list[str], dry_run: bool) -> None:
             files = sorted(str(path.relative_to(ROOT)) for path in (ROOT / "scripts/tests").glob("*.test.cjs"))
             if not files:
                 raise DevError("No Web IDE tests found; check the repository checkout.")
-            run([executable("node", dry_run), "--test", *files], dry_run=dry_run)
+            # Windows browser instances compete heavily at startup; run every file
+            # in order so the portable command also works on a normal desktop.
+            concurrency = ["--test-concurrency=1"] if os.name == "nt" else []
+            run([executable("node", dry_run), "--test", *concurrency, *files], dry_run=dry_run)
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -7,8 +7,12 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.file.Files
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 /** Web IDE 新建工程 / 新建文件 / 新建文件夹 / 删除文件 storage rules (HTTP status follows the exception type). */
 class ProjectStoreTest {
@@ -77,6 +81,72 @@ class ProjectStoreTest {
         assertTrue(dirs.contains("assets/data"))
         assertThrows(IllegalStateException::class.java) { store.createDir("demo", "assets/data") }
         assertThrows(IllegalArgumentException::class.java) { store.createDir("demo", "../outside") }
+    }
+
+    private fun zip(vararg entries: Pair<String, String>): ByteArray {
+        val buf = ByteArrayOutputStream()
+        ZipOutputStream(buf).use { z ->
+            entries.forEach { (name, text) ->
+                z.putNextEntry(ZipEntry(name))
+                z.write(text.toByteArray())
+                z.closeEntry()
+            }
+        }
+        return buf.toByteArray()
+    }
+
+    @Test
+    fun importZipReplacesTheWholeProject() {
+        store.createNew("demo")
+        store.writeFile("demo", "old.py", "OLD = 1\n", "utf-8")
+        store.importZip("demo", ByteArrayInputStream(zip("demo/__init__.py" to "NEW = 1\n",
+            "demo/lib/a.py" to "A = 2\n")))
+        assertEquals("NEW = 1\n", store.readFile("demo", "__init__.py").readText())
+        assertEquals("A = 2\n", store.readFile("demo", "lib/a.py").readText())
+        assertFalse("files absent from the new version are gone", File(root, "demo/old.py").exists())
+        assertTrue(File(root, "demo/__init__.py").isFile)
+    }
+
+    @Test
+    fun importZipWithoutATopFolderAlsoReplacesSafely() {
+        store.createNew("demo")
+        store.writeFile("demo", "old.py", "OLD = 1\n", "utf-8")
+        store.importZip("demo", ByteArrayInputStream(zip("__init__.py" to "ROOT = 1\n",
+            "pkg/a.py" to "A = 2\n")))
+        assertEquals("ROOT = 1\n", store.readFile("demo", "__init__.py").readText())
+        assertEquals("A = 2\n", store.readFile("demo", "pkg/a.py").readText())
+        assertFalse(File(root, "demo/old.py").exists())
+    }
+
+    @Test
+    fun importZipWithoutAnEntryLeavesTheCurrentVersionIntact() {
+        store.createNew("demo")
+        store.writeFile("demo", "keep.py", "KEEP = 1\n", "utf-8")
+        assertThrows(IllegalArgumentException::class.java) {
+            store.importZip("demo", ByteArrayInputStream(zip("demo/readme.txt" to "no entry")))
+        }
+        assertEquals("KEEP = 1\n", store.readFile("demo", "keep.py").readText())
+        assertFalse(File(root, "demo/readme.txt").exists())
+    }
+
+    @Test
+    fun interruptedImportKeepsTheCurrentVersionAndRemovesItsStagingFiles() {
+        store.createNew("demo")
+        store.writeFile("demo", "keep.py", "KEEP = 1\n", "utf-8")
+        val archive = zip("__init__.py" to "NEW = 2\n", "res/data.txt" to "payload")
+        val input = object : java.io.FilterInputStream(ByteArrayInputStream(archive)) {
+            var remaining = 40
+            override fun read(bytes: ByteArray, offset: Int, length: Int): Int {
+                if (remaining <= 0) throw java.io.IOException("download interrupted")
+                val n = super.read(bytes, offset, minOf(length, remaining))
+                if (n > 0) remaining -= n
+                return n
+            }
+        }
+        assertThrows(java.io.IOException::class.java) { store.importZip("demo", input) }
+        assertEquals("KEEP = 1\n", store.readFile("demo", "keep.py").readText())
+        assertFalse(File(root, "demo/res/data.txt").exists())
+        assertTrue(File(root.parentFile, "import-tmp").listFiles().isNullOrEmpty())
     }
 
     @Test

@@ -72,13 +72,15 @@ Linux / macOS：
 
 `check` 不带目标时只执行 `repo`。指定多个目标时依次执行；失败立即返回非零退出码；明确选择的组件缺少依赖时报错，不会被当作通过。查看测试输出中的 skip，尤其是浏览器和设备相关用例。
 
+Windows 的 `check webide` 默认逐个执行测试文件，避免多个浏览器实例同时启动导致超时；Linux / macOS 保留 Node 默认并行策略。配置 `CHROME` 为本机 Chrome / Edge 可执行文件路径后执行浏览器用例。
+
 Windows 后台测试会明确跳过依赖 Unix 进程组/`pkill` 的三个打包工作进程用例；这些仍由 Linux CI 验证。没有 Python 3.10 时，加密脚本保护的相关测试也会跳过。扩展测试创建临时符号链接，需要 Windows 开发者模式或具备相应权限的终端。入口会向 Node 测试传递当前 Python 路径，避免依赖 Windows 上未安装的 `python3` 命令；显式设置的 `PYTHON` / `XSCRIPT_TEST_PYTHON` 优先。
 
 `check_repo_files.py` 默认只检查 Git 已跟踪文件；提交前暂存新文件后另跑 `python scripts/check_repo_files.py --staged`。
 
 现有 [完整 CI](../.github/workflows/ci.yml) 继续覆盖 Python 3.10/3.12、覆盖率、PostgreSQL、设备 Python 运行时、Android 构建、桌面端和编辑器。新增 [开发工具 CI](../.github/workflows/dev-tools.yml) 在 Windows 与 Linux 验证通用入口。便携入口不代替完整 CI：
 
-- Android：按 [Android 说明](../android/README.md) 安装 JDK、SDK、Python 3.10，并在 Bash / Git Bash 中运行 `android/build.sh`；PowerShell 直接运行 `.sh` 不受支持。
+- Android：按 [Android 说明](../android/README.md) 安装 JDK、SDK、Python 3.10，并在 Bash / Git Bash 中运行 `android/build.sh`。独立 APK 打包可从 PowerShell 调用 `python backend/xscript_pack.py ...`；Windows 入口会查找 `PATH` 中的 Git Bash，环境路径建议用正斜杠，见 [打包说明](PACKAGING.md)。
 - 设备运行时：沿用 [根目录测试说明](../README.md#开发与测试) 的 `.venv-rt` 和手机依赖版本。
 - 桌面端：按 [桌面端说明](../desktop/README.md) 配置独立 Qt 环境，执行前端与 Python 测试。
 - 完整本机检查：依赖齐全的 Bash 环境中运行 `bash scripts/verify.sh`，检查它列出的所有跳过项。
@@ -92,4 +94,4 @@ git pull --ff-only origin main
 git switch -c feat/my-feature
 ```
 
-先按 [扩展规范](EXTENDING.md) 确定影响面，再改代码和测试。上游同步、提交和发布规则见 [贡献指南](../CONTRIBUTING.md)。
+先按 [新功能工作流程](WORKFLOW.md) 明确需求和验收，再按 [扩展规范](EXTENDING.md) 确定影响面、修改代码和测试。功能、交付与发布模板均在工作流程中链接；建议先后顺序见 [迭代计划](ITERATION_PLAN.md)。上游同步、提交和发布规则见 [贡献指南](../CONTRIBUTING.md)。

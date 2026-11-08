@@ -1,5 +1,7 @@
 # APK 打包与卡密授权
 
+配套验收：[更新与构建机验收](UPDATE_BUILD_ACCEPTANCE.md)、[代码保护说明](CODE_PROTECTION.md)。
+
 把一个工程打包成独立 App：自己的包名、名称、图标，打开后直接进入这个脚本（启动 / 停止、权限、卡密），没有开发者首页和局域网调试接口。App 里的运行时和 XScript 完全相同，所以在 XScript 里调通的工程打包后行为一致。
 
 有两种打包方式，结果一样：
@@ -8,6 +10,10 @@
 - **命令行** `backend/xscript_pack.py`：适合 CI 和本地构建，参数见下文。
 
 两种方式都需要构建机上有 Android SDK、JDK 17+、Python 3.10（见 `android/build.sh`）。后台打包时，构建在运行后台的那台机器上进行。
+
+Windows 的命令行和后台打包还需安装 Git for Windows，将 Git Bash 的 `bash.exe` 加入 `PATH`。Python 打包入口会显式调用 Bash；可用 `Get-Command bash` 检查。配置 `JAVA_HOME`、`ANDROID_HOME`、`XSCRIPT_BUILD_PYTHON` 时建议使用正斜杠路径，例如 `D:/android-sdk`，避免 Bash 写入 `local.properties` 后反斜杠被 Java 属性文件解释为转义。
+
+后台表单的 App 名称默认跟随当前小程序名称或 zip 文件名；更换 zip、切换来源或从小程序预设进入时会同步建议名称。手动填写后保留你的名称；清空字段后，下次选择工程恢复自动建议。展示名称与内部 Python 工程名分别填写。
 
 ## 命令行打包
 

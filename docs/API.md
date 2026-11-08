@@ -5,7 +5,22 @@
 - `xscript.android.*`：原生 API，见下文。
 - `ascript.android.*`：AScript 脚本的直接替换层。见 [AScript 兼容](#ascript-兼容)。
 
+按使用场景组织的最小示例与常见错误见 [API 场景示例](API_EXAMPLES.md)。
+
 坐标为当前屏幕方向下的像素。矩形为 `[left, top, right, bottom]`。PC 端自动补全位于 `ide/python-stubs/`。MCP 工具 `get_module_apis` / `search_api` 提供同一份 API 目录（`ide/mcp-server/xscript_mcp/api_catalog.json`，由 `scripts/gen_api_catalog.py` 生成：签名取自 stub，说明、返回类型和类方法写在 `scripts/api_catalog_src.json`；运行时新增或删除公开函数后，要在该文件里登记或列入 `omit`，否则 CI 的 `--check` 失败）。
+
+## 能力状态与兼容边界
+
+文档只描述仓库当前已经存在并可由代码或测试证明的能力。标记为“未实现”的项目不能通过兼容层调用，也不会在示例中虚构替代接口。
+
+| 分类 | 当前状态 | 说明 |
+| --- | --- | --- |
+| 原生 `xscript.android.*` | 已实现 | 以本页 API 和运行时实现为准，部分能力需要无障碍、Root、截图或悬浮窗权限 |
+| `ascript.android.*` 兼容层 | 部分实现 | 已覆盖的模块可直接迁移；差异和限制见本页末尾 |
+| HID 硬件通道 | 未实现 | `action.Hid` 当前不是 ESP32/PC 虚拟鼠标通道，不应当作真实 HID 使用 |
+| AScript V4 密文脚本 | 未实现 | `--protect` 仅打包 Python 字节码，提高复制门槛，不等同于 V4 加密 |
+| 脚本热更新 | 已实现（需配置） | 需要后台更新地址、channel、公钥和版本码；启动时及定期检查，脚本运行中不替换 |
+| APK 升级 | 已实现（需配置） | 需要后台公告/更新地址；系统安装器仍需要用户确认，不能静默安装 |
 
 ## 运行模式
 
@@ -424,6 +439,39 @@ ui.float_add_menu("rec", "/sdcard/rec.png", on_click, remove_system=False)  # �
 
 已支持：`action`（click / swipe / slide / Touch / Key / Path / gesture / Ime / catch_click）、`node.Selector`（AScript 方法名、`xpath=`、`on_event`）、`node.WebSelector` / `WebNode`（WebWindow 网页控件）、`screen`（capture、bitmap 辅助函数、Colors / FindColors / CompareColors / FindBlock / FindImages / Ocr / CodeScanner / Eraser 以及 GP 任务流水线）、`system`（Device、R、KeyValue、Clipboard、Config、Notification.listen、reboot、shell、open 等）、`event`（KeyEvent / TouchEvent / NotificationEvent）、`ui`（WebWindow、Dialog、Loger、FloatWindow、ImageWindow、Canvas）、`media` 和 `data`。
 
+### 模块状态
+
+| AScript 模块 | 状态 | 边界 |
+| --- | --- | --- |
+| `action` | 部分实现 | 手势、按键、输入、Ime 可用；`action.Hid` 不是硬件 HID 通道 |
+| `node` | 已实现 | `Selector`、`Node`、`WebSelector` / `WebNode`；网页控件只作用于脚本自己的 `WebWindow` |
+| `screen` | 部分实现 | 截图、找色、找图、OCR、YOLO（ONNX）、GP 本地任务可用；NCNN 模型和二进制点阵字库需转换 |
+| `system` | 已实现 | `reboot` 是重启项目进程，不是重启设备 |
+| `event` | 已实现 | 需要无障碍；通知详情优先用通知使用权，否则回退到无障碍事件 |
+| `ui` | 已实现 | 悬浮窗、对话框、网页窗口、画布；需要悬浮窗权限 |
+| `media` | 部分实现 | 音量、震动、TTS、录音、邮件草稿可用；`AliTts` 不实现 |
+| `data` | 已实现 | `KeyValue` 持久化 |
+| `sensor` / `location` / `sms` / `bluetooth` | 已实现（按设备权限） | 传感器、定位订阅与模拟定位、只读短信、经典蓝牙 / BLE |
+| `shizuku` | 已实现（替代路径） | 映射到 XScript 的 Root shell / 手势，不依赖 Shizuku 服务本身 |
+| `vlm.asai` | 已实现（需配置） | 只连接用户显式配置且兼容 `/vision/locate`、`/vision/ask` 的服务，不内置密钥或服务 |
+| `plug` | 部分实现 | 内置 YOLO 插件和外部 APK/JAR/DEX 反射加载可用；没有 AScript 插件服务器 |
+| `cloud_control` | 部分实现 | 可连接 XScript 云控；`connect_to_as` 不可用 |
+
+### 明确未实现
+
+以下功能没有实现，也不会伪装成成功。调用通常抛出 `NotImplementedError` 或打印一次性警告；迁移时按最后一列替代。
+
+| 未实现项 | 原因 | 替代方案 |
+| --- | --- | --- |
+| `action.Hid` 硬件通道 | 当前没有 ESP32 / 主机端 HID 协议与设备管理 | 使用 `action.click` / `swipe` 等无障碍或 Root 手势；不要把它当真实 HID |
+| AScript V4 密文脚本 | 未实现 V4 运行时的解密与校验 | 导入源码或普通字节码工程；`--protect` 只做字节码保护 |
+| NCNN 模型文件（`.param` / `.bin`） | 运行时使用 ONNX Runtime | 用 Ultralytics 导出同一模型的 ONNX |
+| AScript 图色助手的二进制 `font.t` | 文件格式未公开 | 用 `MatrixFont` 重新制作 JSON 字库，`Ocr.matrix` / `OcrX` 可直接使用 |
+| 云端 GP 插件（`type` 含「云端」） | 没有 AScript 插件服务器 | 用 `gp.register_task` 映射到本地实现，或改用本地 GP 任务 |
+| 内置 YOLO 以外的 `plug.load` / `plug.inject` / `load_module_dynamically` | 插件分发与注入机制不同 | 用 `xscript.android.pip` 安装 Python 包，或用 `plug.load_apk` 加载自有 Java 插件 |
+| `cloud_control.connect_to_as` | AScript 官方云服务不可用 | 用 `connect_to_ws` 连接自建后台（见 [CLOUD.md](CLOUD.md)） |
+| `media.AliTts` | 依赖 AScript 的在线语音服务 | 用 `media.talk()` 调用系统 TTS |
+
 行为差异：
 
 - **OCR：** `Ocr.mlkitocr_v2` 使用 ML Kit。`paddleocr` / `paddleocr_v2` / `paddleocr_v3`，以及在 `Ocr.set_engine(Ocr.MODE_PADDLE_V5)` 之后调用的 `find` / `find_all`，使用 PP-OCRv5。`tess` 映射到 ML Kit。结果为 `OcrResult` 对象，支持属性访问（`.text`、`.rect`、`.center_x`、`.region_position`）和字典访问（`r["text"]`、`r.get(...)`）。
@@ -479,15 +527,7 @@ ui.float_add_menu("rec", "/sdcard/rec.png", on_click, remove_system=False)  # �
 - **`plug.load_apk(path)` / `load_apk_dir(dir)`：** 用 DexClassLoader 加载应用自己存储里的 .apk/.jar/.dex，`load_class(name).new(...)`、`call`、`call_static`、`get/set` 反射调用。
   插件用到的库（Kotlin 标准库、AndroidX 等）请打包在插件自己的 dex 里。正式版 APK 经过 R8 精简，宿主里的这些库只保留了 XScript 自己用到的类和方法，插件不能依赖它们。
 
-不支持以下功能，调用时会抛出 `NotImplementedError` 或打印一次性警告：
-
-- `action.Hid`
-- NCNN 模型文件（请使用同一模型的 ONNX 导出）
-- AScript 图色助手生成的二进制点阵字库（`font.t`）：`Ocr.matrix` / `OcrX` 已支持，但字库要用 `MatrixFont` 重新制作（见上文 AScript 兼容的「点阵字库」）
-- 云端 GP 插件（`type` 含「云端」的任务；没有插件服务器，可用 `gp.register_task` 映射到本地实现）
-- 内置 YOLO 插件以外的 `plug.load` 插件，`plug.inject` / `load_module_dynamically`
-- `cloud_control.connect_to_as`（AScript 官方云服务）
-- `media.AliTts`（请用 `media.talk()`）
+未实现项的完整列表、原因和替代方案见本节开头的[明确未实现](#明确未实现)。不要只按模块名推测兼容性；以本页表格、stub 和运行时实现为准。
 
 ## 开发者工具（脚本 IDE / 图色 / 标注 / 投屏）
 

@@ -271,6 +271,14 @@ class Pipeline(object):
             current = relate([base], "descendant", ())
         else:
             current = order
+        return self._apply(current, tops)
+
+    def _run_from(self, nodes):
+        """Continue the stages from already matched nodes (XPath hits): relations move from those nodes,
+        filters after a relation apply to the new set."""
+        return self._apply(list(nodes or []), None)
+
+    def _apply(self, current, tops):
         first = True
         for relation, args, filters in self.stages:
             if not first and relation:
